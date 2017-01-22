@@ -1,3 +1,20 @@
+/*
+    A transparent signing library for RF24Mesh
+    Copyright (C) 2016 Avamander (avamander@gmail.com)
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, version 3 of the License.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 struct sentnonce {
   uint8_t toNodeID;
   unsigned long int nonce;
@@ -38,19 +55,25 @@ const uint8_t hmacs[][20] PROGMEM = {
 extern Sha256Class sha256;
 extern RF24Network network;
 extern RF24NetworkHeader header;
-/*
+/*S
 Signed network maintenance
 */
 void SignedNetworkUpdate(){
-   ReceivedNonceListRemoveTimeout(firstreceivednonce);
-   SentNonceListRemoveTimeout(firstsentnonce);
+   ReceivedNonceListRemoveTimeout();
+   SentNonceListRemoveTimeout();
    BufferListSendAll();
+}
+
+void SignedNetworkBegin(){
+   SentNonceListInitalize();
+   ReceivedNonceListInitalize();
+   BufferListInitalize();
 }
 /*
 Sent nonce linked list functions
 */
-sentnonce * SentNonceListFindFromID(sentnonce * start, uint8_t nodeID) {
-   sentnonce * current = start;
+sentnonce * SentNonceListFindFromID(uint8_t nodeID) {
+   sentnonce * current = firstsentnonce;
    while (current->next != NULL) {
       current = current->next;
       if(current->toNodeID == nodeID){
@@ -61,8 +84,8 @@ sentnonce * SentNonceListFindFromID(sentnonce * start, uint8_t nodeID) {
    return NULL;
 }
 
-bool SentNonceListAdd(sentnonce * start, uint8_t toNodeID, unsigned long int nonce) {
-    sentnonce * current = start;
+bool SentNonceListAdd(uint8_t toNodeID, unsigned long int nonce) {
+    sentnonce * current = firstsentnonce;
     while (current->next != NULL) {
         current = current->next;
     }
@@ -77,13 +100,12 @@ bool SentNonceListAdd(sentnonce * start, uint8_t toNodeID, unsigned long int non
 }
 
 bool SentNonceListInitalize(void){
-   sentnonce * head = NULL;
-   head = malloc(sizeof(sentnonce));
-   if (head == NULL) {
+   firstsentnonce = malloc(sizeof(sentnonce));
+   if (firstsentnonce == NULL) {
        return false;
    }
 
-   head->next = NULL;
+   firstsentnonce->next = NULL;
    return true;
 }
 
@@ -92,8 +114,8 @@ void SentNonceListRemove(sentnonce * previous, sentnonce * current){
     free(current);
 }
 
-void SentNonceListRemoveTimeout(sentnonce * start) {
-    sentnonce * current = start;
+void SentNonceListRemoveTimeout() {
+    sentnonce * current = firstsentnonce;
     sentnonce * previous = NULL;
     while (current->next != NULL) {
         previous = current;
@@ -104,8 +126,8 @@ void SentNonceListRemoveTimeout(sentnonce * start) {
     }
 }
 
-void SentNonceListPrint(sentnonce * start){
-   sentnonce * current = start;
+void SentNonceListPrint(){
+   sentnonce * current = firstsentnonce;
    Serial.println(F("___ SENT NONCE DUMP ___"));
    while (current->next != NULL) {
       current = current->next;
@@ -119,8 +141,8 @@ void SentNonceListPrint(sentnonce * start){
 /* 
 Received nonce linked list functions
 */
-receivednonce * ReceivedNonceListFindFromID(receivednonce * start, uint8_t nodeID) {
-   receivednonce * current = start;
+receivednonce * ReceivedNonceListFindFromID(uint8_t nodeID) {
+   receivednonce * current = firstreceivednonce;
    while (current->next != NULL) {
       current = current->next;
       if(current->fromNodeId == nodeID){
@@ -131,8 +153,8 @@ receivednonce * ReceivedNonceListFindFromID(receivednonce * start, uint8_t nodeI
    return NULL;
 }
 
-bool ReceivedNonceListAdd(receivednonce * start, uint8_t fromNodeId, unsigned long int nonce) {
-    receivednonce * current = start;
+bool ReceivedNonceListAdd(uint8_t fromNodeId, unsigned long int nonce) {
+    receivednonce * current = firstreceivednonce;
     while (current->next != NULL) {
         current = current->next;
     }
@@ -148,13 +170,13 @@ bool ReceivedNonceListAdd(receivednonce * start, uint8_t fromNodeId, unsigned lo
 }
 
 bool ReceivedNonceListInitalize(void){
-   receivednonce * head = NULL;
-   head = malloc(sizeof(receivednonce));
-   if (head == NULL) {
+   firstreceivednonce = NULL;
+   firstreceivednonce = malloc(sizeof(receivednonce));
+   if (firstreceivednonce == NULL) {
        return false;
    }
 
-   head->next = NULL;
+   firstreceivednonce->next = NULL;
    return true;
 }
 
@@ -163,8 +185,8 @@ void ReceivedNonceListRemove(receivednonce * previous, receivednonce * current){
     free(current);
 }
 
-void ReceivedNonceListRemoveTimeout(receivednonce * start) {
-    receivednonce * current = start;
+void ReceivedNonceListRemoveTimeout() {
+    receivednonce * current = firstreceivednonce;
     receivednonce * previous = NULL;
     while (current->next != NULL) {
         previous = current;
@@ -175,8 +197,8 @@ void ReceivedNonceListRemoveTimeout(receivednonce * start) {
     }
 }
 
-void ReceivedNonceListPrint(receivednonce * start){
-   receivednonce * current = start;
+void ReceivedNonceListPrint(){
+   receivednonce * current = firstreceivednonce;
    Serial.println(F("___ RECIVED NONCE DUMP ___"));
    while (current->next != NULL) {
       current = current->next;
@@ -191,8 +213,8 @@ void ReceivedNonceListPrint(receivednonce * start){
 /* 
 Sending buffer related functions
 */
-bufferitem * BufferListFindForID(bufferitem * start, uint8_t nodeID) {
-   bufferitem * current = start;
+bufferitem * BufferListFindForID(uint8_t nodeID) {
+   bufferitem * current = firstbufferitem;
    while (current->next != NULL) {
       current = current->next;
       if(current->bufferItemForNode == nodeID){
@@ -203,8 +225,8 @@ bufferitem * BufferListFindForID(bufferitem * start, uint8_t nodeID) {
    return NULL;
 }
 
-bool BufferListAdd(bufferitem * start, uint8_t bufferItemForNode, void * payload) {
-   bufferitem * current = start;
+bool BufferListAdd(uint8_t bufferItemForNode, void * payload) {
+   bufferitem * current = firstbufferitem;
    while (current->next != NULL) {
       current = current->next;
    }
@@ -221,18 +243,21 @@ bool BufferListAdd(bufferitem * start, uint8_t bufferItemForNode, void * payload
    if(nonce != NULL){
       BufferListSend(current->next, nonce);
       return true;
+   } else{
+      RequestNonceFromNodeID(bufferItemForNode);
+      return true;
    }
    return true;
 }
 
 bool BufferListInitalize(void){
-   bufferitem * head = NULL;
-   head = malloc(sizeof(bufferitem));
-   if (head == NULL) {
+   firstbufferitem = NULL;
+   firstbufferitem = malloc(sizeof(bufferitem));
+   if (firstbufferitem == NULL) {
        return false;
    }
 
-   head->next = NULL;
+   firstbufferitem->next = NULL;
    return true;
 }
 
@@ -250,7 +275,14 @@ bool BufferListSend(bufferitem * item, receivednonce * nonce){
 }
 
 void BufferListSendAll(){
-
+   receivednonce * current = firstbufferitem;
+   while (current->next != NULL) {
+      current = current->next;
+      bufferitem * item = BufferListFindForID(current->fromNodeId);
+      if(item != null){
+         BufferListSend(item, current->next->nonce);
+      }
+   }
 }
 
 /*  //TODO: Payloads should be dumped at one point
@@ -272,8 +304,8 @@ void BufferListRemove(bufferitem * previous, bufferitem * current){
     free(current);
 }
 
-void BufferListPrint(bufferitem * start){
-   bufferitem * current = start;
+void BufferListPrint(){
+   bufferitem * current = firstbufferitem;
    Serial.println(F("___ BUFFER DUMP ___"));
    while (current->next != NULL) {
       current = current->next;
@@ -301,11 +333,11 @@ void hashdata(void * payload, size_t payload_size){
       Sha256.write(tempdata);
    }
 }
-void storeHash(uint8_t* hash, uint8_t* result_hash) { // Copy the hash.
+void StoreHash(uint8_t * hash, uint8_t * result_hash) { // Copy the hash.
    memmove(hash[i], result_hash[i], sizeof(&result_hash)/sizeof(uint8_t)); 
 }
 
-void printHash(uint8_t* hash) { // Print the hash
+void PrintHash(uint8_t * hash) { // Print the hash
   for (int i = 0; i < 32; i++) {
     Serial.print("0123456789abcdef"[hash[i] >> 4]);
     Serial.print("0123456789abcdef"[hash[i] & 0xf]);
@@ -346,7 +378,7 @@ bool UnsignedNetworkAvailable(void) {
             return false; //WARNING: Just discarding the message
           }
           uint8_t calculated_hash[32];
-          storeHash(Sha256.result(), calculated_hash);
+          storeHash(Sha256.resultHMAC(), calculated_hash);
           Serial.print(F("Calculated hash: "));
           printHash(calculated_hash);
           Serial.print(F("Received hash: "));
