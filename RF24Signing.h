@@ -1,6 +1,6 @@
 /*
     A transparent signing library for RF24Mesh
-    Copyright (C) 2016 Avamander (avamander@gmail.com)
+    Copyright (C) 2016 Avamander <avamander@gmail.com>
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
