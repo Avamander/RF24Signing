@@ -42,7 +42,6 @@ int sensor_id;
 int sensor_data;
 
 struct payload_s {
-  uint8_t hash[32];
   int sensor_id;
   int sensor_data;
 };
@@ -56,15 +55,20 @@ void setup(void){
   SPI.begin();
   radio.begin();
   network.begin(/*channel*/ 90, /*node address*/ this_node);
+  SignedNetworkBegin();
 }
 
 void loop() {
   network.update();                          // Check the network regularlys
-
+  SignedNetworkUpdate();
   unsigned long now = millis();              // If it's time to send a message, send it!
   if ( now - last_sent >= interval  ) {
     last_sent = now;
     Serial.print("Main loop: Sending...");
+    payload_s payload;
+    payload.sensor_id=123;
+    payload.sensor_data=345;
+    BufferListAdd(other_node, &payload);
   }
 
   while (UnsignedNetworkAvailable()) {

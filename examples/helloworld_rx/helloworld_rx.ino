@@ -43,13 +43,14 @@ void setup(void) {
   SPI.begin();
   radio.begin();
   network.begin(/*channel*/ 90, /*node address*/ this_node);
+  SignedNetworkBegin();
 }
 
 void loop(void) {
   network.update();                  // Check the network regularly
-  SignedNetworkMaintenance();
+  SignedNetworkUpdate();
 
-  while (UnsignedNetworkAvailable(&sensor_id, &sensor_data)) {
+  while (UnsignedNetworkAvailable()) {
     Serial.print("Unsigned Sensor ID: ");
     Serial.println(sensor_id);
     Serial.print("Unsigned Sensor DATA: ");
