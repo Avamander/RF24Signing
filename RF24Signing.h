@@ -403,7 +403,7 @@ bool UnsignedNetworkAvailable(void) {
 
           network.read(received_header, &payload_nonce, sizeof(payload_nonce));
           unsigned long int time = millis();
-          byte storing_nonce = StoreNonce(header.from_node, time);
+          byte storing_nonce = SentNonceListAdd(header.from_node, time);
           if (storing_nonce == 1) {
             Serial.print(F("Stored nonce"));
 
@@ -438,14 +438,7 @@ bool UnsignedNetworkAvailable(void) {
           Serial.println(payload_nonce.nonce);
           Serial.print(F("From node: "));
           Serial.println(header.from_node);
-          for (byte i = 0; i < SIZE_OF_ARRAYS; i++) { //Iterate through the slots
-            if (nonces_for_node_id[i] == header.from_node && nonces_when_requested[i] != 0) {  //Received and requested from the right node
-              Serial.print(F("Recived nonce for message: "));
-              Serial.println(i);
-              nonces_stored_nonce[i] = payload_nonce.nonce;
-              break;
-            }
-          }
+          ReceivedNonceListAdd(header.from_node, payload_nonce.nonce);
           return false;
         }
       default: {
