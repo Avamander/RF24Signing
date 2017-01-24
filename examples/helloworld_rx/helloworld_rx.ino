@@ -51,6 +51,7 @@ void loop(void) {
   SignedNetworkUpdate();
 
   while (UnsignedNetworkAvailable()) {
+    
     Serial.print("Unsigned Sensor ID: ");
     Serial.println(sensor_id);
     Serial.print("Unsigned Sensor DATA: ");

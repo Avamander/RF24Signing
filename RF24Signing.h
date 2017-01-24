@@ -55,20 +55,6 @@ const uint8_t hmacs[][20] PROGMEM = {
 extern Sha256Class sha256;
 extern RF24Network network;
 extern RF24NetworkHeader header;
-/*S
-Signed network maintenance
-*/
-void SignedNetworkUpdate(){
-   ReceivedNonceListRemoveTimeout();
-   SentNonceListRemoveTimeout();
-   BufferListSendAll();
-}
-
-void SignedNetworkBegin(){
-   SentNonceListInitalize();
-   ReceivedNonceListInitalize();
-   BufferListInitalize();
-}
 
 /*
 Hashing related functions
@@ -301,12 +287,12 @@ bool BufferListSend(bufferitem * item, receivednonce * nonce){
 }
 
 void BufferListSendAll(){
-   receivednonce * current = firstbufferitem;
+   bufferitem * current = firstbufferitem;
    while (current->next != NULL) {
       current = current->next;
-      bufferitem * item = BufferListFindForID(current->fromNodeId);
-      if(item != null){
-         BufferListSend(item, current->next->nonce);
+      uint32_t nonce = ReceivedNonceListFindFromID(current->bufferItemForNode);
+      if(nonce != 0){
+         BufferListSend(current, nonce);
       }
    }
 }
@@ -326,7 +312,7 @@ void BufferListRemoveTimeout(bufferitem * start) {
 
 void BufferListRemove(bufferitem * previous, bufferitem * current){
     previous->next = current->next;
-    free(current->bufferPayload);
+    free(current->payload);
     free(current);
 }
 
@@ -340,9 +326,9 @@ void BufferListPrint(){
       Serial.print(F("Pointer to next: "));
       Serial.println((int) current->next);
       Serial.print(F("Hash"));
-      Serial.println((char)current->bufferPayload->hash[0]);
+      Serial.println((char)current->hash[0]);
       Serial.print(F("Payload size"));
-      Serial.println(current->bufferPayload->payload_size);
+      Serial.println(current->payload_size);
    }
 }
 
@@ -365,7 +351,10 @@ bool UnsignedNetworkAvailable(void) {
           Sha256.initHmac(hmacs[header.from_node], 20);
 
           Serial.println(F("Writing payload to crypto buffer..."));
-          HashData(payload.payload, payload.payload_size);
+          void * buf = malloc(payload.payload_size);
+          network.peek(header, buf, sizeof(payloadmetadata)+payload.payload_size);
+          HashData(buf, payload.payload_size);
+          free(buf);
           Serial.println(F(" "));
 
           Serial.println(header.from_node);
@@ -390,7 +379,7 @@ bool UnsignedNetworkAvailable(void) {
             Serial.println(F("Inequal hash!"));
             return false;
           }
-          return payload.payload;
+          return true;
         }
       case 'R': { //"R" like "sent you a nonce"
           Serial.print(F("R Time: "));
@@ -449,4 +438,19 @@ bool UnsignedNetworkAvailable(void) {
     }
   }
   return false;
+}
+
+/*
+Signed network maintenance
+*/
+void SignedNetworkUpdate(){
+   ReceivedNonceListRemoveTimeout();
+   SentNonceListRemoveTimeout();
+   BufferListSendAll();
+}
+
+void SignedNetworkBegin(){
+   SentNonceListInitalize();
+   ReceivedNonceListInitalize();
+   BufferListInitalize();
 }
