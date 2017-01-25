@@ -14,16 +14,16 @@
    Listens for messages from the transmitter and prints them out.
 */
 
+#include <RF24Mesh.h>
 #include <RF24Network.h>
 #include <RF24.h>
 #include <SPI.h>
 
-#include "sha256.h"
-Sha256Class Sha256;
+
 
 RF24 radio(9, 10);                // nRF24L01(+) radio attached using Getting Started board
 RF24Network network(radio);      // Network uses that radio
-
+RF24Mesh mesh(radio, network);
 const uint16_t this_node = 00;    // Address of our node in Octal format ( 04,031, etc)
 const uint16_t other_node = 01;   // Address of the other node in Octal format
 
@@ -31,19 +31,21 @@ const uint16_t other_node = 01;   // Address of the other node in Octal format
 
 RF24NetworkHeader header;
 
-
-
-int sensor_id;
-int sensor_data;
+struct payload_p {
+  payloadmetadata metadata;
+  uint32_t time;
+  uint8_t count;
+};
 
 void setup(void) {
   Serial.begin(115200);
-  Serial.println("RF24Network/examples/helloworld_rx/");
-
-  SPI.begin();
-  radio.begin();
-  network.begin(/*channel*/ 90, /*node address*/ this_node);
+  Serial.println(F("RF24Signing/examples/helloworld_rx/"));
+  mesh.setNodeID(1);
+  Serial.println(F("RF24Mesh 1/2 ready"));
+  mesh.begin();
+  Serial.println(F("RF24Mesh ready"));
   SignedNetworkBegin();
+  Serial.println(F("RF24Signing ready"));
 }
 
 void loop(void) {
@@ -51,10 +53,12 @@ void loop(void) {
   SignedNetworkUpdate();
 
   while (UnsignedNetworkAvailable()) {
-    
-    Serial.print("Unsigned Sensor ID: ");
-    Serial.println(sensor_id);
-    Serial.print("Unsigned Sensor DATA: ");
-    Serial.println(sensor_data);
+    RF24NetworkHeader header;
+    payload_p payload;
+    network.read(header, &payload, sizeof(payload_p));
+    Serial.print(F("Payload.time"));
+    Serial.print(payload.time);
+    Serial.print(F(" payload.count "));
+    Serial.println(payload.count);
   }
 }

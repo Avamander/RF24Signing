@@ -45,16 +45,20 @@ struct bufferitem { //Buffer list item
 };
 bufferitem * firstbufferitem;
 
+struct payload_nonce {
+   unsigned long int nonce;
+};
+
 const uint8_t hmacs[][20] PROGMEM = {
   {0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b},
   {0xFE, 0xFE, 0xFE, 0xFE, 0xFE, 0xFE, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b},
 };
 
 #include "sha256.h"
+Sha256Class Sha256;
 
-extern Sha256Class sha256;
 extern RF24Network network;
-extern RF24NetworkHeader header;
+extern RF24Mesh mesh;
 
 /*
 Hashing related functions
@@ -70,7 +74,7 @@ void HashData(void * payload, size_t payload_size){
    }
 }
 void StoreHash(uint8_t * hash, uint8_t * result_hash) { // Copy the hash.
-   memmove(hash[i], result_hash[i], sizeof(&result_hash)/sizeof(uint8_t)); 
+   memmove(result_hash, hash, sizeof(uint8_t)*32); 
 }
 
 void PrintHash(uint8_t * hash) { // Print the hash
@@ -222,6 +226,11 @@ void ReceivedNonceListPrint(){
       Serial.println(current->receivedTimestamp);
    }
 }
+
+void RequestNonceFromNodeID(uint8_t nodeID){
+   payload_nonce payload;
+   mesh.write(&payload,'R', 1, nodeID);
+}
 /* 
 Sending buffer related functions
 */
@@ -236,8 +245,21 @@ bufferitem * BufferListFindForID(uint8_t nodeID) {
 
    return NULL;
 }
+bool BufferListSend(bufferitem * item, receivednonce * nonce){
+   size_t buf_size = sizeof(payloadmetadata) + item->payload_size; //Calculate the size of the message
+   void * buf = malloc(buf_size); //Allocate enough memory for the buffer
 
-bool BufferListAdd(uint8_t bufferItemForNode, void * payload) {
+   Sha256.initHmac(hmacs[item->bufferItemForNode], 20); //Initialize the hmac
+   HashData(item->payload, item->payload_size); //Hash the data itself
+   StoreHash(Sha256.result(), item->hash); //Store hash in payload hash
+
+   memmove(buf, item, sizeof(payloadmetadata)); //Copy metadata to the start of the buffer
+   memmove(buf+sizeof(payloadmetadata), item->payload, item->payload_size); //Copy the payload to the end of the buffer
+   mesh.write(buf, 'S', buf_size); //Send the message
+}
+
+
+bool BufferListAdd(uint8_t bufferItemForNode, void * payload, uint8_t size) {
    bufferitem * current = firstbufferitem;
    while (current->next != NULL) {
       current = current->next;
@@ -249,7 +271,8 @@ bool BufferListAdd(uint8_t bufferItemForNode, void * payload) {
    }
 
    current->next->bufferItemForNode = bufferItemForNode;
-   current->next->bufferPayload = payload;
+   current->next->payload = payload;
+   current->next->payload_size = size;
 
    receivednonce * nonce = ReceivedNonceListFindFromID(bufferItemForNode);
    if(nonce != NULL){
@@ -273,18 +296,7 @@ bool BufferListInitalize(void){
    return true;
 }
 
-bool BufferListSend(bufferitem * item, receivednonce * nonce){
-   size_t buf_size = sizeof(metadata) + item->payload_size; //Calculate the size of the message
-   void * buf = malloc(bufsize); //Allocate enough memory for the buffer
 
-   Sha256.initHmac(hmacs[item->toNodeID], 20); //Initialize the hmac
-   HashData(item->payload, item->payload_size); //Hash the data itself
-   StoreHash(Sha256.result(), item->hash); //Store hash in payload hash
-
-   memmove(buf, item, sizeof(metadata)); //Copy metadata to the start of the buffer
-   memmove(buf+sizeof(metadata), item->payload, item->payload_size); //Copy the payload to the end of the buffer
-   mesh.write(buf, 'S', buf_size); //Send the message
-}
 
 void BufferListSendAll(){
    bufferitem * current = firstbufferitem;
@@ -338,6 +350,7 @@ Intercepting signing payloads
 bool UnsignedNetworkAvailable(void) {
   if (network.available()) {
     Serial.print(F("NETWORK RECEIVE: "));
+    RF24NetworkHeader header;
     network.peek(header);
     Serial.println((char)header.type);
     switch (header.type) { // Is there anything ready for us?
@@ -381,34 +394,23 @@ bool UnsignedNetworkAvailable(void) {
           }
           return true;
         }
-      case 'R': { //"R" like "sent you a nonce"
+      case 'R': { //"R" like "send me a nonce"
           Serial.print(F("R Time: "));
           Serial.println(millis());
 
-          struct payload_no {
-            unsigned long int nonce;
-          };
-          payload_no payload_nonce;
+
+          payload_nonce payload;
           RF24NetworkHeader received_header;
 
-          network.read(received_header, &payload_nonce, sizeof(payload_nonce));
+          network.read(received_header, &payload, sizeof(payload_nonce));  //We just wanted to know the type of the message, discard the content
           unsigned long int time = millis();
-          byte storing_nonce = SentNonceListAdd(header.from_node, time);
-          if (storing_nonce == 1) {
-            Serial.print(F("Stored nonce"));
-            RF24NetworkHeader header(received_header.from_node, 'N');
-            payload_nonce.nonce = time;
-            if (network.write(header, &payload_nonce, sizeof(payload_nonce))) {
-              Serial.print(F("Sent nonce: "));
-            }
-            Serial.println(time);
-            return false;
-          } else if (storing_nonce == 2) {
-            Serial.println(F("Unable to store nonce, buffer full"));
-          } else if (storing_nonce == 3) {
-            Serial.println(F("Node already has valid nonce"));
-            return false;
-          }
+          payload.nonce = time;
+          Serial.print(F("Sent nonce: "));
+          Serial.println(payload.nonce);
+          Serial.print(F("To node: "));
+          Serial.println(received_header.from_node);
+          SentNonceListAdd(header.from_node, time);
+          mesh.write(&payload, 'N', sizeof(payload), received_header.from_node);
         }
       case 'N': { //"N" like "you sent me a nonce"
           struct payload_no {
