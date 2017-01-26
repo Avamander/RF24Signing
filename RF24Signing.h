@@ -249,7 +249,7 @@ bufferitem * BufferListFindForID(uint8_t nodeID) {
 
    return NULL;
 }
-bool BufferListSend(bufferitem * item, receivednonce * nonce){
+bool BufferListSend(bufferitem * item, receivednonce * nonce, bufferitem * previousitem){
    Serial.print(" Sending buffer item");
    size_t buf_size = sizeof(payloadmetadata) + item->payload_size; //Calculate the size of the message
    void * buf = malloc(buf_size); //Allocate enough memory for the buffer
@@ -263,6 +263,7 @@ bool BufferListSend(bufferitem * item, receivednonce * nonce){
    Serial.println("Buffer item prepared.");
    mesh.write(buf, 'S', buf_size); //Send the message
    Serial.print("I guess it's sent");
+   BufferListRemove(previousitem, item);
 }
 
 
@@ -284,7 +285,7 @@ bool BufferListAdd(uint8_t bufferItemForNode, void * payload, uint8_t size) {
 
    receivednonce * nonce = ReceivedNonceListFindFromID(bufferItemForNode);
    if(nonce != NULL){
-      BufferListSend(current->next, nonce);
+      BufferListSend(current->next, nonce, current);
       return true;
    } else{
       Serial.println("Requested nonce");
@@ -310,12 +311,12 @@ bool BufferListInitalize(void){
 void BufferListSendAll(){
    bufferitem * current = firstbufferitem;
    while (current->next != NULL) {
-      current = current->next;
       uint32_t nonce = ReceivedNonceListFindFromID(current->bufferItemForNode);
       if(nonce != 0){
          Serial.print(" ..one nonce for node is not 0!");
-         BufferListSend(current, nonce);
+         BufferListSend(current->next, nonce, current);
       }
+      current = current->next;
    }
 }
 

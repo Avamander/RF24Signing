@@ -57,7 +57,7 @@ unsigned long int displayTimer;
 void loop() {
   SignedNetworkUpdate();
 
-  if(millis() - displayTimer > 10000){
+  if(millis() - displayTimer > 5000){
     displayTimer = millis();
     Serial.println(" ");
     Serial.println(F("********Assigned Addresses********"));
