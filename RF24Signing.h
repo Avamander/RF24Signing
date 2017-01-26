@@ -70,8 +70,10 @@ void HashData(void * payload, size_t payload_size){
       Serial.print(F("Writing..."));                         //the payload byte by byte to the crypto
       Serial.print(i);
       Serial.print(F(" "));
+      Serial.print((char) tempdata);
       Sha256.write(tempdata);
    }
+   Serial.println();
 }
 void StoreHash(uint8_t * hash, uint8_t * result_hash) { // Copy the hash.
    memmove(result_hash, hash, sizeof(uint8_t)*32); 
@@ -248,7 +250,7 @@ bufferitem * BufferListFindForID(uint8_t nodeID) {
    return NULL;
 }
 bool BufferListSend(bufferitem * item, receivednonce * nonce){
-   Serial.print("Sending buffer item");
+   Serial.print(" Sending buffer item");
    size_t buf_size = sizeof(payloadmetadata) + item->payload_size; //Calculate the size of the message
    void * buf = malloc(buf_size); //Allocate enough memory for the buffer
 
@@ -258,7 +260,9 @@ bool BufferListSend(bufferitem * item, receivednonce * nonce){
 
    memmove(buf, item, sizeof(payloadmetadata)); //Copy metadata to the start of the buffer
    memmove(buf+sizeof(payloadmetadata), item->payload, item->payload_size); //Copy the payload to the end of the buffer
+   Serial.println("Buffer item prepared.");
    mesh.write(buf, 'S', buf_size); //Send the message
+   Serial.print("I guess it's sent");
 }
 
 
@@ -305,20 +309,14 @@ bool BufferListInitalize(void){
 
 void BufferListSendAll(){
    bufferitem * current = firstbufferitem;
-
-   //Serial.print("Iterating... ");
    while (current->next != NULL) {
       current = current->next;
       uint32_t nonce = ReceivedNonceListFindFromID(current->bufferItemForNode);
-      Serial.print("Nonce: ");
-      Serial.print(nonce);
       if(nonce != 0){
-         Serial.print(" ..is not 0!");
+         Serial.print(" ..one nonce for node is not 0!");
          BufferListSend(current, nonce);
       }
-      Serial.println();
    }
-   //Serial.println(" ..Iterated!");
 }
 
 /*  //TODO: Payloads should be dumped at one point
@@ -372,18 +370,18 @@ bool UnsignedNetworkAvailable(void) {
           payloadmetadata payload;
           Serial.println(F("Reading data..."));
           network.peek(header, &payload, sizeof(payload));
-
-          Sha256.initHmac(hmacs[header.from_node], 20);
+          uint16_t nodeID = mesh.getNodeID(header.from_node);
+          Serial.print(F(" message from: "));
+          Serial.println(nodeID);
+          Sha256.initHmac(hmacs[nodeID], 20);
 
           Serial.println(F("Writing payload to crypto buffer..."));
           void * buf = malloc(payload.payload_size);
           network.peek(header, buf, sizeof(payloadmetadata)+payload.payload_size);
           HashData(buf, payload.payload_size);
           free(buf);
-          Serial.println(F(" "));
 
-          Serial.println(header.from_node);
-          unsigned long int tempnonce = ReceivedNonceListFindFromID(header.from_node);
+          unsigned long int tempnonce = ReceivedNonceListFindFromID(nodeID);
           if (tempnonce != NULL) {
             Serial.print(F("Nonce found: "));
             Serial.println(tempnonce);
@@ -420,9 +418,11 @@ bool UnsignedNetworkAvailable(void) {
           Serial.print(F("Sent nonce: "));
           Serial.println(payload.nonce);
           Serial.print(F("To node: "));
-          Serial.println(received_header.from_node);
-          SentNonceListAdd(header.from_node, time);
-          mesh.write(&payload, 'N', sizeof(payload), received_header.from_node);
+          uint16_t nodeID = mesh.getNodeID(received_header.from_node);
+          Serial.println(nodeID);
+          SentNonceListAdd(nodeID, time);
+          mesh.write(&payload, 'N', sizeof(payload), nodeID);
+          return false;
         }
       case 'N': { //"N" like "you sent me a nonce"
           struct payload_no {
@@ -439,8 +439,9 @@ bool UnsignedNetworkAvailable(void) {
           Serial.print(F("Recived nonce: "));
           Serial.println(payload_nonce.nonce);
           Serial.print(F("From node: "));
-          Serial.println(header.from_node);
-          ReceivedNonceListAdd(header.from_node, payload_nonce.nonce);
+          uint16_t nodeID = mesh.getNodeID(header.from_node);
+          Serial.println(nodeID);
+          ReceivedNonceListAdd(nodeID, payload_nonce.nonce);
           return false;
         }
       default: {

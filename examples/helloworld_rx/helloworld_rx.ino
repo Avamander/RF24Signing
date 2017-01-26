@@ -24,8 +24,6 @@
 RF24 radio(9, 10);                // nRF24L01(+) radio attached using Getting Started board
 RF24Network network(radio);      // Network uses that radio
 RF24Mesh mesh(radio, network);
-const uint16_t this_node = 00;    // Address of our node in Octal format ( 04,031, etc)
-const uint16_t other_node = 01;   // Address of the other node in Octal format
 
 #include "RF24Signing.h"
 
