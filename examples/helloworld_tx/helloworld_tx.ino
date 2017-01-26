@@ -23,7 +23,7 @@ RF24 radio(9, 10);
 RF24Network network(radio);   // Network uses that radio
 RF24Mesh mesh(radio, network);
 
-const unsigned long interval = 1500;//ms  // How often to send 'hello world to the other unit
+const unsigned long interval = 5000;//ms  // How often to send 'hello world to the other unit
 
 unsigned long last_sent = 60000;            // When did we last send?
 unsigned long packets_sent;          // How many have we sent already
@@ -55,20 +55,9 @@ void setup(void){
 unsigned long int displayTimer;
 
 void loop() {
-  mesh.update();                          // Check the network regularly
-  mesh.DHCP();
   SignedNetworkUpdate();
-  unsigned long now = millis();              // If it's time to send a message, send it!
-  if ( now - last_sent >= interval  ) {
-    last_sent = now;
-    Serial.print("Main loop: Sending...");
-    payload_s payload;
-    payload.sensor_id=123;
-    payload.sensor_data=345;
-    BufferListAdd(1, &payload, sizeof(payload_s));
-  }
 
-  if(millis() - displayTimer > 5000){
+  if(millis() - displayTimer > 10000){
     displayTimer = millis();
     Serial.println(" ");
     Serial.println(F("********Assigned Addresses********"));
@@ -79,6 +68,23 @@ void loop() {
        Serial.println(mesh.addrList[i].address,OCT);
      }
     Serial.println(F("**********************************"));
+    Serial.print("Main loop: Sending...");
+    payload_s payload;
+    payload.sensor_id=123;
+    payload.sensor_data=345;
+    BufferListAdd(1, &payload, sizeof(payload_s));
+  }
+
+  while(UnsignedNetworkAvailable()){
+    RF24NetworkHeader header;
+    network.peek(header);
+    
+    uint32_t dat=0;
+    switch(header.type){
+      // Display the incoming millis() values from the sensor nodes
+      case 'M': network.read(header,&dat,sizeof(dat)); Serial.println(dat); break;
+      default: network.read(header,0,0); Serial.println(header.type);break;
+    }
   }
 }
 
