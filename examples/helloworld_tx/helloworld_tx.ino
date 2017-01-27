@@ -68,11 +68,12 @@ void loop() {
        Serial.println(mesh.addrList[i].address,OCT);
      }
     Serial.println(F("**********************************"));
-    Serial.print("Main loop: Sending...");
+    Serial.print(F("Main loop: Sending..."));
     payload_s payload;
     payload.sensor_id=123;
     payload.sensor_data=345;
     BufferListAdd(1, &payload, sizeof(payload_s));
+    Serial.println(F("Added to buffer list"));
   }
 
   while(UnsignedNetworkAvailable()){

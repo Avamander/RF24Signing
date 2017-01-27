@@ -159,6 +159,22 @@ void SentNonceListPrint(){
 /* 
 Received nonce linked list functions
 */
+void BufferListPrint(){
+   bufferitem * current = firstbufferitem->next;
+   Serial.println(F("___ BUFFER DUMP ___"));
+   while (current->next != NULL) {
+      Serial.print(F("For: "));
+      Serial.println(current->bufferItemForNode);
+      Serial.print(F("Pointer to next: "));
+      Serial.println((uint16_t) current->next);
+      Serial.print(F("Hash: "));
+      Serial.println((char) current->hash[0]);
+      Serial.print(F("Payload size: "));
+      Serial.println(current->payload_size);
+      current = current->next;
+   }
+}
+
 receivednonce * ReceivedNonceListFindFromID(uint8_t nodeID) {
    receivednonce * current = firstreceivednonce;
    while (current->next != NULL) {
@@ -228,6 +244,11 @@ void ReceivedNonceListPrint(){
       Serial.println(current->receivedTimestamp);
    }
 }
+void BufferListRemove(bufferitem * previous, bufferitem * current){
+    previous->next = current->next;
+    free(current->payload);
+    free(current);
+}
 
 void RequestNonceFromNodeID(uint8_t nodeID){
    payload_nonce payload;
@@ -262,13 +283,16 @@ bool BufferListSend(bufferitem * item, receivednonce * nonce, bufferitem * previ
    memmove(buf+sizeof(payloadmetadata), item->payload, item->payload_size); //Copy the payload to the end of the buffer
    Serial.println("Buffer item prepared.");
    mesh.write(buf, 'S', buf_size); //Send the message
-   Serial.print("I guess it's sent");
+   Serial.println("I guess it's sent");
    BufferListRemove(previousitem, item);
+   Serial.println(F("Buffer list"));
+   BufferListPrint();
+
 }
 
 
 bool BufferListAdd(uint8_t bufferItemForNode, void * payload, uint8_t size) {
-   Serial.print("Added item to buffer list");
+   Serial.println(F("Added item to buffer list"));
    bufferitem * current = firstbufferitem;
    while (current->next != NULL) {
       current = current->next;
@@ -288,8 +312,9 @@ bool BufferListAdd(uint8_t bufferItemForNode, void * payload, uint8_t size) {
       BufferListSend(current->next, nonce, current);
       return true;
    } else{
-      Serial.println("Requested nonce");
+      Serial.println(F("Requested nonce"));
       RequestNonceFromNodeID(bufferItemForNode);
+      Serial.println(F("Requested"));
       return true;
    }
    return true;
@@ -313,7 +338,7 @@ void BufferListSendAll(){
    while (current->next != NULL) {
       uint32_t nonce = ReceivedNonceListFindFromID(current->bufferItemForNode);
       if(nonce != 0){
-         Serial.print(" ..one nonce for node is not 0!");
+         Serial.println(" ..one nonce for node is not 0!");
          BufferListSend(current->next, nonce, current);
       }
       current = current->next;
@@ -332,28 +357,6 @@ void BufferListRemoveTimeout(bufferitem * start) {
         }
     }
 }*/
-
-void BufferListRemove(bufferitem * previous, bufferitem * current){
-    previous->next = current->next;
-    free(current->payload);
-    free(current);
-}
-
-void BufferListPrint(){
-   bufferitem * current = firstbufferitem;
-   Serial.println(F("___ BUFFER DUMP ___"));
-   while (current->next != NULL) {
-      current = current->next;
-      Serial.print(F("For: "));
-      Serial.println(current->bufferItemForNode);
-      Serial.print(F("Pointer to next: "));
-      Serial.println((int) current->next);
-      Serial.print(F("Hash"));
-      Serial.println((char)current->hash[0]);
-      Serial.print(F("Payload size"));
-      Serial.println(current->payload_size);
-   }
-}
 
 /*
 Intercepting signing payloads
@@ -380,10 +383,11 @@ bool UnsignedNetworkAvailable(void) {
           void * buf = malloc(payload.payload_size);
           network.peek(header, buf, sizeof(payloadmetadata)+payload.payload_size);
           HashData(buf, payload.payload_size);
+          Serial.println(F("Wrote to crypto buffer"));
           free(buf);
 
           unsigned long int tempnonce = ReceivedNonceListFindFromID(nodeID);
-          if (tempnonce != NULL) {
+          if (tempnonce != 0) {
             Serial.print(F("Nonce found: "));
             Serial.println(tempnonce);
             Sha256.write(tempnonce);
