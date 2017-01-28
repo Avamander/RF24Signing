@@ -253,7 +253,7 @@ void BufferListRemove(bufferitem * previous, bufferitem * current){
 void RequestNonceFromNodeID(uint8_t nodeID){
    payload_nonce payload;
    uint8_t status = mesh.write(&payload,'R', 1, nodeID);
-   Serial.print("Status: ");
+   Serial.print(F("Status: "));
    Serial.println(status);
 }
 /* 
@@ -271,7 +271,7 @@ bufferitem * BufferListFindForID(uint8_t nodeID) {
    return NULL;
 }
 bool BufferListSend(bufferitem * item, receivednonce * nonce, bufferitem * previousitem){
-   Serial.print(" Sending buffer item");
+   Serial.print(F(" Sending buffer item"));
    size_t buf_size = sizeof(payloadmetadata) + item->payload_size; //Calculate the size of the message
    void * buf = malloc(buf_size); //Allocate enough memory for the buffer
 
@@ -281,9 +281,9 @@ bool BufferListSend(bufferitem * item, receivednonce * nonce, bufferitem * previ
 
    memmove(buf, item, sizeof(payloadmetadata)); //Copy metadata to the start of the buffer
    memmove(buf+sizeof(payloadmetadata), item->payload, item->payload_size); //Copy the payload to the end of the buffer
-   Serial.println("Buffer item prepared.");
+   Serial.println(F("Buffer item prepared."));
    mesh.write(buf, 'S', buf_size); //Send the message
-   Serial.println("I guess it's sent");
+   Serial.println(F("I guess it's sent"));
    BufferListRemove(previousitem, item);
    Serial.println(F("Buffer list"));
    BufferListPrint();
@@ -338,7 +338,7 @@ void BufferListSendAll(){
    while (current->next != NULL) {
       uint32_t nonce = ReceivedNonceListFindFromID(current->bufferItemForNode);
       if(nonce != 0){
-         Serial.println(" ..one nonce for node is not 0!");
+         Serial.println(F(" ..one nonce for node is not 0!"));
          BufferListSend(current->next, nonce, current);
       }
       current = current->next;
@@ -464,14 +464,14 @@ bool UnsignedNetworkAvailable(void) {
 Signed network maintenance
 */
 void SignedNetworkUpdate(){
-   mesh.update();                          // Check the network regularly
+   mesh.update();                          // Check the network...
    mesh.DHCP();
    ReceivedNonceListRemoveTimeout();
    SentNonceListRemoveTimeout();
-   mesh.update();                          // Check the network regularly
+   mesh.update();                          // ...again....
    mesh.DHCP();
    BufferListSendAll();
-   mesh.update();                          // Check the network regularly
+   mesh.update();                          // ...and again.
    mesh.DHCP();
 }
 
