@@ -18,7 +18,7 @@
 struct sentnonce {
   uint8_t toNodeID;
   unsigned long int nonce;
-  sentnonce * next;
+  sentnonce * next = NULL;
 };
 sentnonce * firstsentnonce;
 
@@ -26,7 +26,7 @@ struct receivednonce {
   uint8_t fromNodeId;
   unsigned long int nonce;
   unsigned long int receivedTimestamp;
-  receivednonce * next;
+  receivednonce * next = NULL;
 };
 
 receivednonce * firstreceivednonce;
@@ -40,9 +40,10 @@ struct bufferitem { //Buffer list item
   uint8_t hash[32];
   uint8_t payload_size;
   uint8_t bufferItemForNode;
-  bufferitem * next; 
-  void * payload; 
+  bufferitem * next = NULL; 
+  void * payload = NULL; 
 };
+
 bufferitem * firstbufferitem;
 
 struct payload_nonce {
@@ -160,18 +161,20 @@ void SentNonceListPrint(){
 Received nonce linked list functions
 */
 void BufferListPrint(){
-   bufferitem * current = firstbufferitem->next;
    Serial.println(F("___ BUFFER DUMP ___"));
-   while (current->next != NULL) {
-      Serial.print(F("For: "));
-      Serial.println(current->bufferItemForNode);
-      Serial.print(F("Pointer to next: "));
-      Serial.println((uint16_t) current->next);
-      Serial.print(F("Hash: "));
-      Serial.println((char) current->hash[0]);
-      Serial.print(F("Payload size: "));
-      Serial.println(current->payload_size);
-      current = current->next;
+   if(firstbufferitem->next != NULL){
+      bufferitem * current = firstbufferitem->next;
+      while (current->next != NULL) {
+         Serial.print(F("For: "));
+         Serial.println(current->bufferItemForNode);
+         Serial.print(F("Pointer to next: "));
+         Serial.println((uint16_t) current->next);
+         Serial.print(F("Hash: "));
+         Serial.println((char) current->hash[0]);
+         Serial.print(F("Payload size: "));
+         Serial.println(current->payload_size);
+         current = current->next;
+      }
    }
 }
 

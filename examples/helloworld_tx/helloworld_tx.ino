@@ -43,7 +43,7 @@ struct payload_s {
 
 struct payload_s payload;
 
-void setup(void){
+void setup(void) {
   Serial.begin(115200);
   Serial.println("RF24Network/examples/helloworld_tx/");
   Sha256.init();
@@ -55,36 +55,57 @@ void setup(void){
 unsigned long int displayTimer;
 
 void loop() {
+  if (Serial.available() > 0) {
+    int abyte = Serial.read();
+
+    switch (abyte) {
+      case 'a':
+        ReceivedNonceListPrint();
+        break;
+      case 'b':
+        SentNonceListPrint();
+        break;
+      case 'c':
+        BufferListPrint();
+        break;
+      case 'd':
+        payload_s payload;
+        payload.sensor_id = 123;
+        payload.sensor_data = 345;
+        BufferListAdd(1, &payload, sizeof(payload_s));
+        Serial.println(F("Added to buffer list"));
+        break;
+      case 'e':
+        break;
+      default:
+        break;
+    }
+  }
   SignedNetworkUpdate();
 
-  if(millis() - displayTimer > 5000){
+  if (millis() - displayTimer > 5000) {
     displayTimer = millis();
     Serial.println(" ");
     Serial.println(F("********Assigned Addresses********"));
-     for(int i=0; i<mesh.addrListTop; i++){
-       Serial.print("NodeID: ");
-       Serial.print(mesh.addrList[i].nodeID);
-       Serial.print(" RF24Network Address: 0");
-       Serial.println(mesh.addrList[i].address,OCT);
-     }
+    for (int i = 0; i < mesh.addrListTop; i++) {
+      Serial.print("NodeID: ");
+      Serial.print(mesh.addrList[i].nodeID);
+      Serial.print(" RF24Network Address: 0");
+      Serial.println(mesh.addrList[i].address, OCT);
+    }
     Serial.println(F("**********************************"));
     Serial.print(F("Main loop: Sending..."));
-    payload_s payload;
-    payload.sensor_id=123;
-    payload.sensor_data=345;
-    BufferListAdd(1, &payload, sizeof(payload_s));
-    Serial.println(F("Added to buffer list"));
   }
 
-  while(UnsignedNetworkAvailable()){
+  while (UnsignedNetworkAvailable()) {
     RF24NetworkHeader header;
     network.peek(header);
-    
-    uint32_t dat=0;
-    switch(header.type){
+
+    uint32_t dat = 0;
+    switch (header.type) {
       // Display the incoming millis() values from the sensor nodes
-      case 'M': network.read(header,&dat,sizeof(dat)); Serial.println(dat); break;
-      default: network.read(header,0,0); Serial.println(header.type);break;
+      case 'M': network.read(header, &dat, sizeof(dat)); Serial.println(dat); break;
+      default: network.read(header, 0, 0); Serial.println(header.type); break;
     }
   }
 }

@@ -47,6 +47,27 @@ void setup(void) {
 }
 
 void loop(void) {
+  if (Serial.available() > 0) {
+    int abyte = Serial.read();
+
+    switch (abyte) {
+      case 'a':
+        ReceivedNonceListPrint();
+        break;
+      case 'b':
+        SentNonceListPrint();
+        break;
+      case 'c':
+        BufferListPrint();
+        break;
+      case 'd':
+        break;
+      case 'e':
+        break;
+      default:
+        break;
+    }
+  }
   network.update();                  // Check the network regularly
   SignedNetworkUpdate();
 
