@@ -43,16 +43,19 @@ struct payload_s {
 
 struct payload_s payload;
 
+unsigned long displayTimer = 0;
+
 void setup(void) {
+  delay(1000);
   Serial.begin(115200);
   Serial.println("RF24Network/examples/helloworld_tx/");
-  Sha256.init();
   mesh.setNodeID(0);
+  Serial.println(F("RF24Mesh 1/2 ready"));
   mesh.begin();
+  Serial.println(F("RF24Mesh ready"));
   SignedNetworkBegin();
+  Serial.println(F("RF24Signing ready"));
 }
-
-unsigned long int displayTimer;
 
 void loop() {
   if (Serial.available() > 0) {
@@ -69,13 +72,23 @@ void loop() {
         BufferListPrint();
         break;
       case 'd':
-        payload_s payload;
         payload.sensor_id = 123;
         payload.sensor_data = 345;
         BufferListAdd(1, &payload, sizeof(payload_s));
-        Serial.println(F("Added to buffer list"));
+        Serial.println(F("Returned to switch"));
         break;
       case 'e':
+        displayTimer = millis();
+        Serial.println(F(" "));
+        Serial.println(F("********Assigned Addresses********"));
+        for (int i = 0; i < mesh.addrListTop; i++) {
+          Serial.print(F("NodeID: "));
+          Serial.print(mesh.addrList[i].nodeID);
+          Serial.print(F(" RF24Network Address: 0"));
+          Serial.println(mesh.addrList[i].address, OCT);
+        }
+        Serial.println(F("**********************************"));
+        Serial.println(F(" "));
         break;
       default:
         break;
@@ -83,29 +96,21 @@ void loop() {
   }
   SignedNetworkUpdate();
 
-  if (millis() - displayTimer > 5000) {
+  if (millis() - displayTimer > 1000) {
+    Serial.println(millis());
     displayTimer = millis();
-    Serial.println(" ");
-    Serial.println(F("********Assigned Addresses********"));
-    for (int i = 0; i < mesh.addrListTop; i++) {
-      Serial.print("NodeID: ");
-      Serial.print(mesh.addrList[i].nodeID);
-      Serial.print(" RF24Network Address: 0");
-      Serial.println(mesh.addrList[i].address, OCT);
-    }
-    Serial.println(F("**********************************"));
-    Serial.print(F("Main loop: Sending..."));
   }
 
   while (UnsignedNetworkAvailable()) {
+    Serial.println(F("-"));
     RF24NetworkHeader header;
     network.peek(header);
-
+    Serial.println(F("<"));
     uint32_t dat = 0;
     switch (header.type) {
       // Display the incoming millis() values from the sensor nodes
-      case 'M': network.read(header, &dat, sizeof(dat)); Serial.println(dat); break;
-      default: network.read(header, 0, 0); Serial.println(header.type); break;
+      case 'M': Serial.println(F(">")); network.read(header, &dat, sizeof(dat)); Serial.println(dat); break;
+      default: Serial.println(F("|")); network.read(header, 0, 0); Serial.println(header.type); break;
     }
   }
 }

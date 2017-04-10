@@ -29,13 +29,21 @@ RF24Mesh mesh(radio, network);
 
 RF24NetworkHeader header;
 
+struct payload_s {
+  int sensor_id;
+  int sensor_data;
+};
+
 struct payload_p {
   payloadmetadata metadata;
   uint32_t time;
   uint8_t count;
 };
 
+unsigned long displayTimer = 0;
+
 void setup(void) {
+  delay(500);
   Serial.begin(115200);
   Serial.println(F("RF24Signing/examples/helloworld_rx/"));
   mesh.setNodeID(1);
@@ -61,6 +69,12 @@ void loop(void) {
         BufferListPrint();
         break;
       case 'd':
+
+        payload_s payload;
+        payload.sensor_id = 123;
+        payload.sensor_data = 345;
+        BufferListAdd(1, &payload, sizeof(payload_s));
+        Serial.println(F("Returned to switch"));
         break;
       case 'e':
         break;
@@ -71,7 +85,13 @@ void loop(void) {
   network.update();                  // Check the network regularly
   SignedNetworkUpdate();
 
+  if (millis() - displayTimer > 1000) {
+    Serial.println(millis());
+    displayTimer = millis();
+  }
+  
   while (UnsignedNetworkAvailable()) {
+    Serial.println(F("-"));
     RF24NetworkHeader header;
     payload_p payload;
     network.read(header, &payload, sizeof(payload_p));

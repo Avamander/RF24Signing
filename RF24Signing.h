@@ -16,30 +16,30 @@
 */
 
 struct sentnonce {
-  uint8_t toNodeID;
-  unsigned long int nonce;
+  uint8_t toNodeID = NULL;
+  unsigned long int nonce = NULL;
   sentnonce * next = NULL;
 };
 sentnonce * firstsentnonce;
 
 struct receivednonce {
-  uint8_t fromNodeId;
-  unsigned long int nonce;
-  unsigned long int receivedTimestamp;
+  uint8_t fromNodeId = NULL;
+  unsigned long int nonce = NULL;
+  unsigned long int receivedTimestamp = NULL;
   receivednonce * next = NULL;
 };
 
 receivednonce * firstreceivednonce;
 
 struct payloadmetadata{ //To calculate the size more easily
-  uint8_t hash[32];
-  uint8_t payload_size;
+  uint8_t hash[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+  uint8_t payload_size = NULL;
 };
 
 struct bufferitem { //Buffer list item
-  uint8_t hash[32];
-  uint8_t payload_size;
-  uint8_t bufferItemForNode;
+  uint8_t hash[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+  uint8_t payload_size = NULL;
+  uint8_t bufferItemForNode = NULL;
   bufferitem * next = NULL; 
   void * payload = NULL; 
 };
@@ -105,16 +105,22 @@ sentnonce * SentNonceListFindFromID(uint8_t nodeID) {
 
 bool SentNonceListAdd(uint8_t toNodeID, unsigned long int nonce) {
     sentnonce * current = firstsentnonce;
+    Serial.println(F("Finding last in list"));
     while (current->next != NULL) {
         current = current->next;
     }
 
+    Serial.println(F("Allocating"));
+    Serial.println((char) current->next);
     current->next = malloc(sizeof(sentnonce));
     if(current->next == NULL){
       return false;
     }
+    Serial.println(F("Allocated"));
     current->next->toNodeID = toNodeID;
     current->next->nonce = nonce;
+    current->next->next = NULL;
+    Serial.println(F("Data stored"));
     return true;
 }
 
@@ -129,8 +135,21 @@ bool SentNonceListInitalize(void){
 }
 
 void SentNonceListRemove(sentnonce * previous, sentnonce * current){
+    Serial.println(F("Removing nonce"));
+    Serial.println(F("Current:"));
+    Serial.print(F("Nonce: "));
+    Serial.println(current->nonce);
+    Serial.print(F("Millis: "));
+    Serial.print(millis());
+    Serial.print(F(" This: "));
+    Serial.println((uint8_t) current);
+    Serial.print(F("Previous: "));
+    Serial.println((uint8_t) previous);
+    Serial.print(F("Next: "));
+    Serial.println((uint8_t) current->next);
     previous->next = current->next;
     free(current);
+    Serial.println(F("Removed nonce"));
 }
 
 void SentNonceListRemoveTimeout() {
@@ -140,6 +159,7 @@ void SentNonceListRemoveTimeout() {
         previous = current;
         current = current->next;
         if(millis() - current->nonce > 5000){
+         Serial.println(F("Found outdated nonce"));
          SentNonceListRemove(previous, current);
         }
     }
@@ -170,7 +190,7 @@ void BufferListPrint(){
          Serial.print(F("Pointer to next: "));
          Serial.println((uint16_t) current->next);
          Serial.print(F("Hash: "));
-         Serial.println((char) current->hash[0]);
+         PrintHash(current->hash);
          Serial.print(F("Payload size: "));
          Serial.println(current->payload_size);
          current = current->next;
@@ -179,6 +199,7 @@ void BufferListPrint(){
 }
 
 receivednonce * ReceivedNonceListFindFromID(uint8_t nodeID) {
+   Serial.println(F("Received nonce list find"));
    receivednonce * current = firstreceivednonce;
    while (current->next != NULL) {
       current = current->next;
@@ -191,6 +212,7 @@ receivednonce * ReceivedNonceListFindFromID(uint8_t nodeID) {
 }
 
 bool ReceivedNonceListAdd(uint8_t fromNodeId, unsigned long int nonce) {
+    Serial.print(F("Received nonce list add"));
     receivednonce * current = firstreceivednonce;
     while (current->next != NULL) {
         current = current->next;
@@ -203,10 +225,12 @@ bool ReceivedNonceListAdd(uint8_t fromNodeId, unsigned long int nonce) {
     current->next->fromNodeId = fromNodeId;
     current->next->nonce = nonce;
     current->next->receivedTimestamp = millis();
+    current->next->next = NULL;
     return true;
 }
 
 bool ReceivedNonceListInitalize(void){
+   Serial.print(F("Received nonce list init"));
    firstreceivednonce = NULL;
    firstreceivednonce = malloc(sizeof(receivednonce));
    if (firstreceivednonce == NULL) {
@@ -218,6 +242,7 @@ bool ReceivedNonceListInitalize(void){
 }
 
 void ReceivedNonceListRemove(receivednonce * previous, receivednonce * current){
+   Serial.print(F("Received nonce list remove"));
     previous->next = current->next;
     free(current);
 }
@@ -229,6 +254,7 @@ void ReceivedNonceListRemoveTimeout() {
         previous = current;
         current = current->next;
         if(millis() - current->receivedTimestamp > 5000){
+            Serial.print(F("Received nonce timeout"));
             ReceivedNonceListRemove(previous, current);
         }
     }
@@ -248,13 +274,24 @@ void ReceivedNonceListPrint(){
    }
 }
 void BufferListRemove(bufferitem * previous, bufferitem * current){
-    previous->next = current->next;
-    free(current->payload);
-    free(current);
+   Serial.println(F("Removing from buffer list"));
+   if(current->next == NULL){
+      Serial.println(F("Next is null, clearing"));
+      previous->next = NULL;
+   } else{
+      Serial.println(F("Next is not null, clearing"));
+      previous->next = current->next;
+   }
+
+   free(current->payload->payloadmetadata);
+   free(current->payload);
+   free(current);
 }
 
 void RequestNonceFromNodeID(uint8_t nodeID){
    payload_nonce payload;
+   Serial.print(F("Reqesting nonce from: "));
+   Serial.println(nodeID);
    uint8_t status = mesh.write(&payload,'R', 1, nodeID);
    Serial.print(F("Status: "));
    Serial.println(status);
@@ -274,7 +311,7 @@ bufferitem * BufferListFindForID(uint8_t nodeID) {
    return NULL;
 }
 bool BufferListSend(bufferitem * item, receivednonce * nonce, bufferitem * previousitem){
-   Serial.print(F(" Sending buffer item"));
+   Serial.println(F("Sending buffer item"));
    size_t buf_size = sizeof(payloadmetadata) + item->payload_size; //Calculate the size of the message
    void * buf = malloc(buf_size); //Allocate enough memory for the buffer
 
@@ -290,12 +327,12 @@ bool BufferListSend(bufferitem * item, receivednonce * nonce, bufferitem * previ
    BufferListRemove(previousitem, item);
    Serial.println(F("Buffer list"));
    BufferListPrint();
-
+   Serial.println(F("Buffer list printed"));
 }
 
 
 bool BufferListAdd(uint8_t bufferItemForNode, void * payload, uint8_t size) {
-   Serial.println(F("Added item to buffer list"));
+   Serial.println(F("Add item to buffer list"));
    bufferitem * current = firstbufferitem;
    while (current->next != NULL) {
       current = current->next;
@@ -310,6 +347,7 @@ bool BufferListAdd(uint8_t bufferItemForNode, void * payload, uint8_t size) {
    current->next->payload = payload;
    current->next->payload_size = size;
 
+   Serial.println(F("Finding nonce for nodeID"));
    receivednonce * nonce = ReceivedNonceListFindFromID(bufferItemForNode);
    if(nonce != NULL){
       BufferListSend(current->next, nonce, current);
@@ -320,6 +358,7 @@ bool BufferListAdd(uint8_t bufferItemForNode, void * payload, uint8_t size) {
       Serial.println(F("Requested"));
       return true;
    }
+   Serial.println(F("Added item to buffer list"));
    return true;
 }
 
@@ -338,13 +377,14 @@ bool BufferListInitalize(void){
 
 void BufferListSendAll(){
    bufferitem * current = firstbufferitem;
+   BufferListPrint();
    while (current->next != NULL) {
+      current = current->next;
       uint32_t nonce = ReceivedNonceListFindFromID(current->bufferItemForNode);
       if(nonce != 0){
          Serial.println(F(" ..one nonce for node is not 0!"));
          BufferListSend(current->next, nonce, current);
       }
-      current = current->next;
    }
 }
 
@@ -365,6 +405,7 @@ void BufferListRemoveTimeout(bufferitem * start) {
 Intercepting signing payloads
 */
 bool UnsignedNetworkAvailable(void) {
+  //Serial.println(F(","));
   if (network.available()) {
     Serial.print(F("NETWORK RECEIVE: "));
     RF24NetworkHeader header;
@@ -429,7 +470,10 @@ bool UnsignedNetworkAvailable(void) {
           uint16_t nodeID = mesh.getNodeID(received_header.from_node);
           Serial.println(nodeID);
           SentNonceListAdd(nodeID, time);
+          Serial.println(F("Nonce stored"));
           mesh.write(&payload, 'N', sizeof(payload), nodeID);
+          Serial.println(F("Completed nonce sending"));
+          SentNonceListPrint();
           return false;
         }
       case 'N': { //"N" like "you sent me a nonce"
@@ -466,15 +510,26 @@ bool UnsignedNetworkAvailable(void) {
 /*
 Signed network maintenance
 */
+unsigned long int bufferListMaintenanceTimer = 0;
+unsigned long int bufferListRetryTimer = 0;
 void SignedNetworkUpdate(){
+   //Serial.print(F("."));
    mesh.update();                          // Check the network...
    mesh.DHCP();
-   ReceivedNonceListRemoveTimeout();
-   SentNonceListRemoveTimeout();
-   mesh.update();                          // ...again....
+   if (millis() - bufferListMaintenanceTimer > 500) {
+      ReceivedNonceListRemoveTimeout();
+      SentNonceListRemoveTimeout();
+      Serial.println(F("Sending all"));
+      BufferListSendAll();
+      bufferListMaintenanceTimer = millis();
+   }
+   mesh.update();                          // ...and again...
    mesh.DHCP();
-   BufferListSendAll();
-   mesh.update();                          // ...and again.
+   if(millis() - bufferListRetryTimer > 1000){
+      BufferListRetry();
+      bufferListRetryTimer = millis();
+   }
+   mesh.update();                          // ...and again. Because I write bad code.
    mesh.DHCP();
 }
 
