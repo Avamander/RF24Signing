@@ -1,2 +1,4 @@
 # RF24Signing
-A transparent signing library for RF24Mesh, requires modified version of RF24Network to work transparently.
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1080/badge)](https://bestpractices.coreinfrastructure.org/projects/1080)
+
+A transparent signing library for RF24Mesh.
