@@ -35,7 +35,7 @@ struct payload_s {
 };
 
 struct payload_p {
-  payloadmetadata metadata;
+  PayloadMetadata metadata;
   uint32_t time;
   uint8_t count;
 };
@@ -50,7 +50,7 @@ void setup(void) {
   Serial.println(F("RF24Mesh 1/2 ready"));
   mesh.begin();
   Serial.println(F("RF24Mesh ready"));
-  SignedNetworkBegin();
+  signed_network_begin();
   Serial.println(F("RF24Signing ready"));
 }
 
@@ -60,20 +60,20 @@ void loop(void) {
 
     switch (abyte) {
       case 'a':
-        ReceivedNonceListPrint();
+        received_noncelist_print();
         break;
       case 'b':
-        SentNonceListPrint();
+        sent_noncelist_print();
         break;
       case 'c':
-        BufferListPrint();
+        bufferlist_print();
         break;
       case 'd':
 
         payload_s payload;
         payload.sensor_id = 123;
         payload.sensor_data = 345;
-        BufferListAdd(1, &payload, sizeof(payload_s));
+        bufferlist_add(1, &payload, sizeof(payload_s));
         Serial.println(F("Returned to switch"));
         break;
       case 'e':
