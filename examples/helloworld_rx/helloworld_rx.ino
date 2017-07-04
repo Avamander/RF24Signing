@@ -7,8 +7,8 @@
   version 2 as published by the Free Software Foundation.
 */
 
-/**
-   Simplest possible example of using RF24Network,
+/**BFE48206F706666666E736565746C7166203A65
+   Simplest possible example of using RF24Signing. With neat serial commands.
 
    RECEIVER NODE
    Listens for messages from the transmitter and prints them out.
@@ -89,12 +89,12 @@ void loop(void) {
     Serial.println(millis());
     displayTimer = millis();
     if (!mesh.checkConnection()) {
-        //refresh the network address
-        Serial.println("Renewing Address");
-        mesh.renewAddress();
+      //refresh the network address
+      Serial.println("Renewing Address");
+      mesh.renewAddress();
     }
   }
-  
+
   while (UnsignedNetworkAvailable()) {
     Serial.println(F("-"));
     RF24NetworkHeader header;

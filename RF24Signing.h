@@ -62,8 +62,8 @@ struct payload_nonce {
 };
 
 const uint8_t hmacs[][20] PROGMEM = {
-  {0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b},
-  {0xFE, 0xFE, 0xFE, 0xFE, 0xFE, 0xFE, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b},
+  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
 };
 
 #include "sha256.h"
@@ -72,12 +72,12 @@ Sha256Class Sha256;
 extern RF24Network network;
 extern RF24Mesh mesh;
 
-uint8_t this_node_ID;
+uint8_t current_node_ID;
 
 void signed_network_begin(uint8_t passed_nodeID) {
     Serial.println(F("Signed network begun"));
-    Serial.println((uint8_t)&this_node_ID);
-    this_node_ID = passed_nodeID;
+    Serial.println((uint8_t)&current_node_ID);
+    current_node_ID = passed_nodeID;
 }
 
 /*
@@ -554,49 +554,52 @@ BufferListItem * bufferlist_find_for_id(uint8_t nodeID) {
   return NULL;
 }
 
+void read_hmac_from_progmem(uint8_t nodeID, void * hmac_pointer){
+  uint8_t hmac[20] = {0};
+  uint8_t first_address_hmac = 20*nodeID;
+  Serial.println(nodeID);
+  Serial.print(F("HMAC start offset: "));
+  Serial.println(first_address_hmac);
+  for(uint8_t offset = 0; offset < 20; offset++){
+    uint8_t character = pgm_read_byte_near(&(hmacs[nodeID][offset]));
+    Serial.print(character);
+    Serial.print(F(" "));
+    memmove(((uint8_t*)&hmac)+offset, &character, 1);
+  }
+  memmove(hmac_pointer, hmac, sizeof(hmac));
+  Serial.println();
+}
+
 bool bufferlist_send(BufferListItem * item, ReceivedNonce * nonce, BufferListItem * previousitem) {
   Serial.println(F("Sending buffer item"));
-  size_t buf_size = sizeof(PayloadMetadata) + item->payload_size; //Calculate the size of the message
-  void * buf = malloc(buf_size); //Allocate enough memory for the buffer
+  size_t sizeof_buffer = sizeof(PayloadMetadata) + item->payload_size; //Calculate the size of the message
+  void * buf = malloc(sizeof_buffer); //Allocate enough memory for the buffer
   Serial.print(F("Metadata size: "));
   Serial.println((uint8_t) sizeof(PayloadMetadata));
   Serial.print(F("Payload size: "));
   Serial.println((uint8_t) item->payload_size);
   Serial.print(F("Buffer size: "));
-  Serial.println((uint8_t) buf_size);
+  Serial.println((uint8_t) sizeof_buffer);
   Serial.print(F("Buffer address: "));
   Serial.println((uint8_t) buf);
   
   Serial.print(F("From: "));
-  Serial.println(this_node_ID);
+  Serial.println(current_node_ID);
   Serial.print(F("To: "));
   Serial.println(item->BufferListItemForNode);
-  uint8_t shit = this_node_ID;
-  Serial.println(shit, HEX);
-  Serial.println(this_node_ID, HEX);
-  this_node_ID = shit;
-  uint8_t nul = 0;
-  if(this_node_ID == nul){
-      this_node_ID = 0;
-      Serial.println(F("this_node_ID == nul"));
-  }
-
-
-  Serial.print(F("HMAC: "));
-  Serial.println(hmacs[this_node_ID][0], DEC);
-  Serial.println((uint8_t)&this_node_ID);
-  Serial.println(hmacs[shit][0], DEC);
-  Serial.println(hmacs[nul][0], DEC);
-  Serial.println(hmacs[0][0], DEC);
-  Serial.println(hmacs[1][0], DEC);
-  if(hmacs[this_node_ID][0] == hmacs[nul][0]){
+  
+  uint8_t hmac[20] = {0};
+  read_hmac_from_progmem(current_node_ID, &hmac);
+  if(hmac[0] == hmacs[0][0]){
     Serial.println(F("Equal"));
   }
-  if(this_node_ID != 0){
-    Serial.println(F("this_node_ID != 0"));
-  }
-  Serial.println(this_node_ID);
-  Sha256.initHmac(hmacs[this_node_ID], 20); //Initialize the hmac
+
+  Serial.print(F("HMAC: "));
+  Serial.println(hmac[0], DEC);
+  Serial.println(hmacs[0][0], DEC);
+  Serial.println(hmacs[1][0], DEC);
+
+  Sha256.initHmac(hmac, 20); //Initialize the hmac
   Serial.print(F("Size of full payload: "));
   Serial.println(item->payload_size);
 
@@ -642,7 +645,7 @@ bool bufferlist_send(BufferListItem * item, ReceivedNonce * nonce, BufferListIte
   Serial.print(F("Generated hash: "));
   hash_print(item->hash);
 
-  bool state = mesh.write(buf, 'S', buf_size, item->BufferListItemForNode); //Send the message
+  bool state = mesh.write(buf, 'S', sizeof_buffer, item->BufferListItemForNode); //Send the message
   Serial.print(F("I guess it's "));
   Serial.println(state ? F("sent") : F("not sent"));
   if (state) { //Remove if sent
@@ -755,20 +758,20 @@ bool UnsignedNetworkAvailable(void) {
           Serial.print(F("From: "));
           Serial.println(nodeID);
           Serial.print(F("To: "));
-          Serial.println(this_node_ID);
+          Serial.println(current_node_ID);
+
+
+          uint8_t hmac[20] = {0};
+          read_hmac_from_progmem(nodeID, &hmac);
+          if(hmac[0] == hmacs[0][0]){
+            Serial.println(F("Equal"));
+          }
 
           Serial.print(F("HMAC: "));
-          if(nodeID != 0){
-            Serial.print(nodeID);
-            Serial.print("!=");
-            Serial.println(0);
-          }
-          Serial.println(hmacs[nodeID][0], DEC);
           Serial.println(hmacs[0][0], DEC);
-          Serial.println(hmacs[1][0], DEC);
-          Serial.println(nodeID);
+          Serial.println(hmac[0], DEC);
 
-          Sha256.initHmac(hmacs[nodeID], 20);
+          Sha256.initHmac(hmac, 20);
 
           Serial.print(F("Size of payload: "));
           Serial.println(payload.payload_size);
