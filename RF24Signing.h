@@ -52,7 +52,7 @@ struct BufferListItem { //Buffer list item
   uint8_t BufferListItemForNode = 0;
   BufferListItem * next = 0;
   void * payload = 0;
-//  uint32_t
+  //  uint32_t
 };
 
 BufferListItem * bufferlist_first = 0;
@@ -74,10 +74,26 @@ extern RF24Mesh mesh;
 
 uint8_t current_node_ID;
 
+void hash_print(uint8_t * hash) {
+  for (int i = 0; i < 32; i++) {
+    Serial.print("0123456789abcdef"[hash[i] >> 4]);
+    Serial.print("0123456789abcdef"[hash[i] & 0xf]);
+  }
+  Serial.println();
+}
+
+uint8_t hmacKey2[] = {
+  0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14,
+  0x15, 0x16, 0x17, 0x18, 0x19
+};
+
 void signed_network_begin(uint8_t passed_nodeID) {
-    Serial.println(F("Signed network begun"));
-    Serial.println((uint8_t)&current_node_ID);
-    current_node_ID = passed_nodeID;
+  Serial.println(F("Signed network begun"));
+  Serial.println((uint8_t)&current_node_ID);
+  current_node_ID = passed_nodeID;
+  Sha256.initHmac(hmacKey2, 25);
+  for (uint8_t a = 0; a < 50; a++) Sha256.write(0xcd);
+  hash_print(Sha256.resultHmac());
 }
 
 /*
@@ -87,32 +103,24 @@ void hash_data(void * payload, size_t payload_size) {
   Serial.println((uint8_t) payload);
   Serial.println(payload_size);
   for (uint8_t i = 0; i < payload_size; i++) { //Read the payload from the
-    Serial.print(F("Writing..."));              //the payload byte by byte to the crypto
-    Serial.print(i);
+    Serial.print(F("Writing... "));              //the payload byte by byte to the crypto
+    uint8_t * pload = (uint8_t*) payload;
+    uint8_t * pload_shifted = pload + i;
+    Serial.print((uint8_t) *pload_shifted, DEC);
     Serial.print(F(" "));
-    Serial.print(*(((uint8_t *) payload)+i), DEC);
-    Serial.print(F(" "));
-    Serial.print((uint8_t) (((uint8_t *) payload)+i), DEC);
-    Sha256.write((uint8_t) (((uint8_t *) payload)+i));
-  }
-  Serial.println();
-}
-void hash_store(uint8_t * hash, uint8_t * result_hash) {
-  memmove(result_hash, hash, sizeof(uint8_t) * 32);
-}
-
-void hash_print(uint8_t * hash) {
-  for (int i = 0; i < 32; i++) {
-    Serial.print("0123456789abcdef"[hash[i] >> 4]);
-    Serial.print("0123456789abcdef"[hash[i] & 0xf]);
+    Sha256.write(*pload_shifted);
   }
   Serial.println();
 }
 
-void requested_noncelist_print(){
+void hash_store(void * hash, void * result_hash) {
+  memmove(result_hash, hash, sizeof(uint8_t[32]));
+}
+
+void requested_noncelist_print() {
   RequestedNonce * current = requested_noncelist_first;
   Serial.println(F("___ REQUESTED NONCE LIST DUMP ___"));
-  while(current != 0){
+  while (current != 0) {
     Serial.print(F("Requested this: "));
     Serial.println((uint8_t)current);
     Serial.print(F("Requested from: "));
@@ -131,7 +139,7 @@ void sent_noncelist_print() {
   Serial.println(F("___ SENT NONCE DUMP ___"));
 
   SentNonce * current = sent_noncelist_first;
-  while(current != 0){
+  while (current != 0) {
     Serial.print(F("To: "));
     Serial.println(current->toNodeID);
     Serial.print(F("Nonce: "));
@@ -144,7 +152,7 @@ void bufferlist_print() {
   Serial.println(F("___ BUFFER DUMP ___"));
 
   BufferListItem * current = bufferlist_first;
-  while(current != 0){
+  while (current != 0) {
     Serial.print(F("For: "));
     Serial.println(current->BufferListItemForNode);
     Serial.print(F("Pointer to next: "));
@@ -172,11 +180,11 @@ void received_noncelist_print() {
   }
 }
 
-void random_data_print(void * data, size_t size){
+void random_data_print(void * data, size_t size) {
   void * start = data;
 
-  for(uint8_t offset = 0; offset < size; offset++){
-    Serial.print((uint8_t)(*((uint8_t *)(data+offset))));
+  for (uint8_t offset = 0; offset < size; offset++) {
+    Serial.print((uint8_t)(*((uint8_t *)(data + offset))));
     Serial.print(F(" "));
   }
   Serial.println(F(" "));
@@ -222,7 +230,7 @@ bool bufferlist_initialize() {
   return true;
 }
 
-bool requested_noncelist_initialize(){
+bool requested_noncelist_initialize() {
   requested_noncelist_first = malloc(sizeof(RequestedNonce));
   Serial.println((uint8_t) requested_noncelist_first);
   if (requested_noncelist_first == 0) {
@@ -244,17 +252,17 @@ void request_nonce_from_node_id(uint8_t nodeID) {
   Serial.println(status);
 }
 
-bool requested_noncelist_add(uint8_t passed_nodeID){
+bool requested_noncelist_add(uint8_t passed_nodeID) {
   Serial.println(F("Adding to requested noncelist"));
   RequestedNonce * current = requested_noncelist_first;
-  if(current == 0){
+  if (current == 0) {
     Serial.println(F("Not initialized"));
-    if(!requested_noncelist_initialize()){
+    if (!requested_noncelist_initialize()) {
       return false;
     }
     current = requested_noncelist_first;
-  } else{
-    while(current->next != 0){
+  } else {
+    while (current->next != 0) {
       Serial.println(F("Looking for the last"));
       current = current->next;
     }
@@ -268,26 +276,26 @@ bool requested_noncelist_add(uint8_t passed_nodeID){
   requested_noncelist_print();
 }
 
-bool requested_noncelist_delete(RequestedNonce * previous, RequestedNonce * current){
+bool requested_noncelist_delete(RequestedNonce * previous, RequestedNonce * current) {
   //Delete list item
-  if(previous == 0){
+  if (previous == 0) {
     Serial.println(F("Removing first nonce request"));
     free(current);
     requested_noncelist_first = 0;
     bufferlist_print();
-  } else{
+  } else {
     Serial.println(F("Removing a nonce request in the middle"));
     previous->next = current->next;
     free(current);
   }
 }
 
-bool requested_noncelist_received(uint8_t passed_nodeID){
+bool requested_noncelist_received(uint8_t passed_nodeID) {
   RequestedNonce * current = requested_noncelist_first;
   RequestedNonce * previous = 0;
   requested_noncelist_print();
-  while(current != 0){
-    if(current->fromNodeId == passed_nodeID){
+  while (current != 0) {
+    if (current->fromNodeId == passed_nodeID) {
       Serial.println(F("Deleting request"));
       requested_noncelist_delete(previous, current);
     }
@@ -297,10 +305,10 @@ bool requested_noncelist_received(uint8_t passed_nodeID){
   }
 }
 
-RequestedNonce * requested_noncelist_find_for_nodeID(uint8_t passed_nodeID){
+RequestedNonce * requested_noncelist_find_for_nodeID(uint8_t passed_nodeID) {
   //Find if request exists for nodeID
   RequestedNonce * current = requested_noncelist_first;
-  while(current != 0){
+  while (current != 0) {
     if (current->fromNodeId == passed_nodeID) {
       return current;
     }
@@ -309,11 +317,11 @@ RequestedNonce * requested_noncelist_find_for_nodeID(uint8_t passed_nodeID){
   return 0;
 }
 
-bool requested_noncelist_retry_all(){
+bool requested_noncelist_retry_all() {
   RequestedNonce * previous = 0;
   RequestedNonce * current = requested_noncelist_first;
   requested_noncelist_print();
-  while(current != 0){
+  while (current != 0) {
     Serial.println(F("Request list is not 0"));
     Serial.println(current->lastrequest);
     if (millis() - current->lastrequest > 2000) {
@@ -326,10 +334,10 @@ bool requested_noncelist_retry_all(){
   }
 }
 
-bool requested_noncelist_remove_timeout(){
+bool requested_noncelist_remove_timeout() {
   RequestedNonce * current = requested_noncelist_first;
   RequestedNonce * previous = 0;
-  while(current != 0){
+  while (current != 0) {
     if (millis() - current->time > 10000) {
       Serial.println(F("Removing nonce request"));
       requested_noncelist_delete(previous, current); //deletes current
@@ -365,13 +373,13 @@ bool sent_noncelist_add(uint8_t toNodeID, uint32_t nonce) {
   Serial.println(F("Finding last in list"));
   //delay(100);
   Serial.println(F("Starting"));
-  if(current == 0){
+  if (current == 0) {
     Serial.println(F("Initializing"));
-    if(!sent_noncelist_initialize()){
+    if (!sent_noncelist_initialize()) {
       return false;
     }
     current = sent_noncelist_first;
-  } else{
+  } else {
     while (current->next != 0) {
       current = current->next;
     }
@@ -416,7 +424,7 @@ void sent_noncelist_remove_timeout() {
   Serial.println(F("Removing sent timeout"));
   SentNonce * current = sent_noncelist_first;
   SentNonce * previous = 0;
-  while(current != 0){
+  while (current != 0) {
     if (millis() - current->nonce > 5000) {
       Serial.println(F("Found outdated nonce"));
       sent_noncelist_remove(previous, current);
@@ -453,12 +461,12 @@ bool received_noncelist_add(uint8_t passed_fromNodeId, uint32_t passed_nonce) {
   Serial.println(F("Searching for nonce list last"));
   received_noncelist_print();
 
-  if(current == 0){
-    if(!received_noncelist_initialize()){
+  if (current == 0) {
+    if (!received_noncelist_initialize()) {
       return false;
     }
     current = received_noncelist_first;
-  } else{
+  } else {
     while (current->next != 0) {
       current = current->next;
     }
@@ -481,10 +489,10 @@ bool received_noncelist_add(uint8_t passed_fromNodeId, uint32_t passed_nonce) {
 void received_noncelist_remove(ReceivedNonce * previous, ReceivedNonce * current) {
   Serial.println(F("Received nonce list remove"));
   received_noncelist_print();
-  if(previous == 0){
+  if (previous == 0) {
     free(current);
     received_noncelist_first = 0;
-  } else{
+  } else {
     previous->next = current->next;
     free(current);
   }
@@ -510,19 +518,19 @@ void received_noncelist_remove_timeout() {
 
 void bufferlist_remove(BufferListItem * previous, BufferListItem * current) {
   Serial.println(F("Removing from buffer list"));
-  if(current = bufferlist_first){ // Start of buffer list
+  if (current = bufferlist_first) { // Start of buffer list
     free(current->payload);
     free(current);
     bufferlist_first = 0;
-  } else if(current->next == 0){ // First in the buffer list
+  } else if (current->next == 0) { // First in the buffer list
     free(current->payload);
     free(current);
     previous->next = 0;
-  } else if(previous != 0){ // Somehwere in the middle of the list
+  } else if (previous != 0) { // Somehwere in the middle of the list
     previous->next = current->next;
     free(current->payload);
     free(current);
-  } else{
+  } else {
     Serial.print(F("Error case not matched, dumping pointers: "));
     Serial.print((uint8_t) bufferlist_first);
     Serial.print(F(" "));
@@ -546,7 +554,7 @@ BufferListItem * bufferlist_find_for_id(uint8_t nodeID) {
       return current;
     }
     current = current->next;
-    if(current == 0){
+    if (current == 0) {
       return NULL;
     }
   }
@@ -554,17 +562,17 @@ BufferListItem * bufferlist_find_for_id(uint8_t nodeID) {
   return NULL;
 }
 
-void read_hmac_from_progmem(uint8_t nodeID, void * hmac_pointer){
+void read_hmac_from_progmem(uint8_t nodeID, void * hmac_pointer) {
   uint8_t hmac[20] = {0};
-  uint8_t first_address_hmac = 20*nodeID;
+  uint8_t first_address_hmac = 20 * nodeID;
   Serial.println(nodeID);
   Serial.print(F("HMAC start offset: "));
   Serial.println(first_address_hmac);
-  for(uint8_t offset = 0; offset < 20; offset++){
+  for (uint8_t offset = 0; offset < 20; offset++) {
     uint8_t character = pgm_read_byte_near(&(hmacs[nodeID][offset]));
     Serial.print(character);
     Serial.print(F(" "));
-    memmove(((uint8_t*)&hmac)+offset, &character, 1);
+    memmove(((uint8_t*)&hmac) + offset, &character, 1);
   }
   memmove(hmac_pointer, hmac, sizeof(hmac));
   Serial.println();
@@ -582,15 +590,15 @@ bool bufferlist_send(BufferListItem * item, ReceivedNonce * nonce, BufferListIte
   Serial.println((uint8_t) sizeof_buffer);
   Serial.print(F("Buffer address: "));
   Serial.println((uint8_t) buf);
-  
+
   Serial.print(F("From: "));
   Serial.println(current_node_ID);
   Serial.print(F("To: "));
   Serial.println(item->BufferListItemForNode);
-  
+
   uint8_t hmac[20] = {0};
   read_hmac_from_progmem(current_node_ID, &hmac);
-  if(hmac[0] == hmacs[0][0]){
+  if (hmac[0] == hmacs[0][0]) {
     Serial.println(F("Equal"));
   }
 
@@ -599,49 +607,36 @@ bool bufferlist_send(BufferListItem * item, ReceivedNonce * nonce, BufferListIte
   Serial.println(hmacs[0][0], DEC);
   Serial.println(hmacs[1][0], DEC);
 
+  for (int i; i > 20; i++) {
+    Serial.print(hmac[i]);
+  }
+  Serial.println();
+
   Sha256.initHmac(hmac, 20); //Initialize the hmac
   Serial.print(F("Size of full payload: "));
   Serial.println(item->payload_size);
 
   hash_data(item->payload, item->payload_size); //Hash the data itself
-  Sha256.write(nonce->nonce);
-  hash_store(Sha256.result(), item->hash); //Store hash in payload hash
+  Serial.print(F("Nonce: "));
+  Serial.println(nonce->nonce);
 
-
-/*
-  From
-  To
-  HMAC
-  Size of full payload
-  Metadata
-  Full buffer
-  Nonce
-  Generated hash
-  Original hash
-
-  Hmac init
-  Hash the payload
-  Hash the nonce
-  Store the hash
-  Print the hash
-*/
+  hash_data(&(nonce->nonce), sizeof(uint32_t));
+  hash_store(Sha256.resultHmac(), item->hash); //Store hash in payload hash
 
   //Serial.print(F("Memmove 1: "));
-  //Serial.println((uint8_t) 
+  //Serial.println((uint8_t)
   memmove(buf, item, sizeof(PayloadMetadata)); //Copy metadata to the start of the buffer
-  
+
   Serial.print(F("Metadata: "));
-  random_data_print(buf, sizeof(PayloadMetadata) + item->payload_size);
-  
+  random_data_print(buf, sizeof(PayloadMetadata));
+
   //Serial.print(F("Memmove 2: "));
-  //Serial.println((uint8_t) 
+  //Serial.println((uint8_t)
   memmove(buf + sizeof(PayloadMetadata), item->payload, item->payload_size); //Copy the payload to the end of the buffer
-  
+
   Serial.print(F("Full buffer: "));
   random_data_print(buf, sizeof(PayloadMetadata) + item->payload_size);
 
-  Serial.print(F("Nonce: "));
-  Serial.println(nonce->nonce);
   Serial.print(F("Generated hash: "));
   hash_print(item->hash);
 
@@ -667,10 +662,10 @@ bool bufferlist_add(uint8_t BufferListItemForNode, void * payload, uint8_t size)
   if (bufferlist_first == 0) {
     if (!bufferlist_initialize()) {
       return false;
-    } else{
+    } else {
       current = bufferlist_first;
     }
-  } else{
+  } else {
     while (current->next != 0) {  //Take the last item in the list
       Serial.println(F("Finding the last item"));
       current = current->next;
@@ -713,7 +708,7 @@ void bufferlist_send_all() {
   while (current != 0) {
     Serial.println(F("There's something in the buffer to send"));
     uint32_t nonce = received_noncelist_find_from_ID(current->BufferListItemForNode);
-    
+
     if (nonce != 0) {
       Serial.println(F(" ..one nonce for node is not 0!"));
       bufferlist_send(current, nonce, previous);
@@ -723,17 +718,17 @@ void bufferlist_send_all() {
   }
 }
 
-  //TODO: Payloads should be dumped at one point
-  /*void bufferlist_remove_timeout() {
-    BufferListItem * current = start;
-    BufferListItem * previous = NULL;
-    while (current->next != NULL) {
-        if(millis() - current-> > 5000){
-            received_noncelist_remove(previous, current);
-        }
-        previous = current;
-        current = current->next;
-    }
+//TODO: Payloads should be dumped at one point
+/*void bufferlist_remove_timeout() {
+  BufferListItem * current = start;
+  BufferListItem * previous = NULL;
+  while (current->next != NULL) {
+      if(millis() - current-> > 5000){
+          received_noncelist_remove(previous, current);
+      }
+      previous = current;
+      current = current->next;
+  }
   }*/
 
 /*
@@ -763,13 +758,19 @@ bool UnsignedNetworkAvailable(void) {
 
           uint8_t hmac[20] = {0};
           read_hmac_from_progmem(nodeID, &hmac);
-          if(hmac[0] == hmacs[0][0]){
+          if (hmac[0] == hmacs[0][0]) {
             Serial.println(F("Equal"));
           }
 
           Serial.print(F("HMAC: "));
           Serial.println(hmacs[0][0], DEC);
           Serial.println(hmac[0], DEC);
+
+          for (int i; i > 20; i++) {
+            Serial.print(hmac[i]);
+          }
+
+          Serial.println();
 
           Sha256.initHmac(hmac, 20);
 
@@ -788,31 +789,11 @@ bool UnsignedNetworkAvailable(void) {
           random_data_print(buf, sizeoffullbuffer);
           hash_data((uint8_t *)buf+sizeof(PayloadMetadata), payload.payload_size);
 
-          free(buf);
-
-/*
-  From
-  To
-  HMAC
-  Size of full payload
-  Metadata
-  Full buffer
-  Nonce
-  Generated hash
-  Original hash
-
-  Hmac init
-  Hash the payload
-  Hash the nonce
-  Store the hash
-  Print the hash
-*/
-
           SentNonce * tempnonce = sent_noncelist_find_from_ID(nodeID);
           if (tempnonce != 0) {
             Serial.print(F("Nonce used: "));
             Serial.println(tempnonce->nonce);
-            Sha256.write(tempnonce->nonce);
+            hash_data(&(tempnonce->nonce), sizeof(uint32_t));
           } else {
             Serial.println(F("Nonce not found!"));
             return false; //TODO WARNING: Just keeping the message in the buffer
@@ -821,11 +802,13 @@ bool UnsignedNetworkAvailable(void) {
           uint8_t calculated_hash[32];
           hash_store(Sha256.resultHmac(), calculated_hash);
 
+
           Serial.print(F("Calculated hash: "));
           hash_print(calculated_hash);
           Serial.print(F("Received hash: "));
           hash_print(payload.hash);
 
+          free(buf);
           if (calculated_hash == payload.hash) {
             Serial.println(F("EQUAL HASH?!"));
           } else {
@@ -853,7 +836,7 @@ bool UnsignedNetworkAvailable(void) {
           Serial.println(nodeID);
           Serial.println(F("Switch"));
           bool state = mesh.write(&payload, 'N', sizeof(payload), nodeID);
-          if(state){
+          if (state) {
             sent_noncelist_add(nodeID, time);
             Serial.println(F("Nonce stored"));
             Serial.println(F("Completed nonce sending"));
@@ -916,14 +899,14 @@ void signed_network_update() {
     /*if (bufferlist_first != 0) {
       Serial.println(F("3: Checking for buffer timeout"));
       bufferlist_remove_timeout();
-    }*/
+      }*/
 
-    if (requested_noncelist_first != 0){
+    if (requested_noncelist_first != 0) {
       Serial.println(F("4: Checking for nonce request timeouts"));
       requested_noncelist_remove_timeout();
     }
 
-    if (bufferlist_first != 0){
+    if (bufferlist_first != 0) {
       Serial.println(F("5: Sending all"));
       bufferlist_send_all();
     }
