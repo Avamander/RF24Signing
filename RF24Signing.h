@@ -72,18 +72,28 @@ Sha256Class Sha256;
 extern RF24Network network;
 extern RF24Mesh mesh;
 
+uint8_t this_node_ID;
+
+void signed_network_begin(uint8_t passed_nodeID) {
+    Serial.println(F("Signed network begun"));
+    Serial.println((uint8_t)&this_node_ID);
+    this_node_ID = passed_nodeID;
+}
+
 /*
   Hashing related functions
 */
 void hash_data(void * payload, size_t payload_size) {
+  Serial.println((uint8_t) payload);
+  Serial.println(payload_size);
   for (uint8_t i = 0; i < payload_size; i++) { //Read the payload from the
-    uint8_t tempdata = 0;
-    memmove(tempdata, ((uint8_t)payload) + i, 1); //Increment pointer and copy
-    Serial.print(F("Writing..."));                         //the payload byte by byte to the crypto
+    Serial.print(F("Writing..."));              //the payload byte by byte to the crypto
     Serial.print(i);
     Serial.print(F(" "));
-    Serial.print((char) tempdata);
-    Sha256.write(tempdata);
+    Serial.print(*(((uint8_t *) payload)+i), DEC);
+    Serial.print(F(" "));
+    Serial.print((uint8_t) (((uint8_t *) payload)+i), DEC);
+    Sha256.write((uint8_t) (((uint8_t *) payload)+i));
   }
   Serial.println();
 }
@@ -425,7 +435,8 @@ ReceivedNonce * received_noncelist_find_from_ID(uint8_t nodeID) {
   ReceivedNonce * current = received_noncelist_first;
   while (current != 0) {
     if (current->fromNodeId == nodeID) {
-      Serial.println(F("Found nonce"));
+      Serial.print(F("Found nonce: "));
+      Serial.println(current->nonce);
       return current;
     }
     current = current->next;
@@ -555,34 +566,82 @@ bool bufferlist_send(BufferListItem * item, ReceivedNonce * nonce, BufferListIte
   Serial.println((uint8_t) buf_size);
   Serial.print(F("Buffer address: "));
   Serial.println((uint8_t) buf);
+  
+  Serial.print(F("From: "));
+  Serial.println(this_node_ID);
+  Serial.print(F("To: "));
+  Serial.println(item->BufferListItemForNode);
+  uint8_t shit = this_node_ID;
+  Serial.println(shit, HEX);
+  Serial.println(this_node_ID, HEX);
+  this_node_ID = shit;
+  uint8_t nul = 0;
+  if(this_node_ID == nul){
+      this_node_ID = 0;
+      Serial.println(F("this_node_ID == nul"));
+  }
 
-  Sha256.initHmac(hmacs[item->BufferListItemForNode], 20); //Initialize the hmac
+
+  Serial.print(F("HMAC: "));
+  Serial.println(hmacs[this_node_ID][0], DEC);
+  Serial.println((uint8_t)&this_node_ID);
+  Serial.println(hmacs[shit][0], DEC);
+  Serial.println(hmacs[nul][0], DEC);
+  Serial.println(hmacs[0][0], DEC);
+  Serial.println(hmacs[1][0], DEC);
+  if(hmacs[this_node_ID][0] == hmacs[nul][0]){
+    Serial.println(F("Equal"));
+  }
+  if(this_node_ID != 0){
+    Serial.println(F("this_node_ID != 0"));
+  }
+  Serial.println(this_node_ID);
+  Sha256.initHmac(hmacs[this_node_ID], 20); //Initialize the hmac
+  Serial.print(F("Size of full payload: "));
+  Serial.println(item->payload_size);
+
   hash_data(item->payload, item->payload_size); //Hash the data itself
+  Sha256.write(nonce->nonce);
   hash_store(Sha256.result(), item->hash); //Store hash in payload hash
 
 
-  /*
-  struct PayloadMetadata { //To calculate the size more easily
-    uint8_t hash[32] = {0};
-    uint8_t payload_size = 0;
-  };
-  struct BufferListItem { //Buffer list item
-    uint8_t hash[32] = {0};
-    uint8_t payload_size = 0;
-    uint8_t BufferListItemForNode = 0;
-    BufferListItem * next = 0;
-    void * payload = 0;
-  };
-  */
-  Serial.println(sizeof(PayloadMetadata));
-  Serial.print(F("Memmove 1: "));
-  Serial.println((uint8_t) memmove(buf, item, sizeof(PayloadMetadata))); //Copy metadata to the start of the buffer
+/*
+  From
+  To
+  HMAC
+  Size of full payload
+  Metadata
+  Full buffer
+  Nonce
+  Generated hash
+  Original hash
+
+  Hmac init
+  Hash the payload
+  Hash the nonce
+  Store the hash
+  Print the hash
+*/
+
+  //Serial.print(F("Memmove 1: "));
+  //Serial.println((uint8_t) 
+  memmove(buf, item, sizeof(PayloadMetadata)); //Copy metadata to the start of the buffer
+  
+  Serial.print(F("Metadata: "));
   random_data_print(buf, sizeof(PayloadMetadata) + item->payload_size);
-  Serial.print(F("Memmove 2: "));
-  Serial.println((uint8_t) memmove(buf + sizeof(PayloadMetadata), item->payload, item->payload_size)); //Copy the payload to the end of the buffer
+  
+  //Serial.print(F("Memmove 2: "));
+  //Serial.println((uint8_t) 
+  memmove(buf + sizeof(PayloadMetadata), item->payload, item->payload_size); //Copy the payload to the end of the buffer
+  
+  Serial.print(F("Full buffer: "));
   random_data_print(buf, sizeof(PayloadMetadata) + item->payload_size);
 
-  Serial.println(F("Buffer item prepared."));
+  Serial.print(F("Nonce: "));
+  Serial.println(nonce->nonce);
+  Serial.print(F("Generated hash: "));
+  hash_print(item->hash);
+
   bool state = mesh.write(buf, 'S', buf_size, item->BufferListItemForNode); //Send the message
   Serial.print(F("I guess it's "));
   Serial.println(state ? F("sent") : F("not sent"));
@@ -599,6 +658,7 @@ bool bufferlist_send(BufferListItem * item, ReceivedNonce * nonce, BufferListIte
 
 bool bufferlist_add(uint8_t BufferListItemForNode, void * payload, uint8_t size) {
   Serial.println(F("Add item to buffer list"));
+  Serial.println(size);
   BufferListItem * current = bufferlist_first;
   BufferListItem * previous = 0;
   if (bufferlist_first == 0) {
@@ -688,44 +748,88 @@ bool UnsignedNetworkAvailable(void) {
           Serial.print(F("S Time: "));
           Serial.println(millis());
           PayloadMetadata payload;
-          Serial.println(F("Reading data..."));
+
           network.peek(header, &payload, sizeof(PayloadMetadata));
-          uint16_t nodeID = mesh.getNodeID(header.from_node);
-          Serial.print(F(" message from: "));
+          uint8_t nodeID = mesh.getNodeID(header.from_node);
+
+          Serial.print(F("From: "));
           Serial.println(nodeID);
+          Serial.print(F("To: "));
+          Serial.println(this_node_ID);
+
+          Serial.print(F("HMAC: "));
+          if(nodeID != 0){
+            Serial.print(nodeID);
+            Serial.print("!=");
+            Serial.println(0);
+          }
+          Serial.println(hmacs[nodeID][0], DEC);
+          Serial.println(hmacs[0][0], DEC);
+          Serial.println(hmacs[1][0], DEC);
+          Serial.println(nodeID);
+
           Sha256.initHmac(hmacs[nodeID], 20);
-          random_data_print(&payload, sizeof(PayloadMetadata));
-          Serial.println(sizeof(PayloadMetadata));
+
+          Serial.print(F("Size of payload: "));
           Serial.println(payload.payload_size);
-          Serial.println(F("Writing payload to crypto buffer..."));
-          void * buf = malloc(sizeof(PayloadMetadata)+ payload.payload_size);
-          network.peek(header, buf, sizeof(PayloadMetadata) + payload.payload_size);
-          random_data_print(buf, sizeof(PayloadMetadata)+ payload.payload_size);
-          hash_data(buf, payload.payload_size);
-          Serial.println(F("Wrote to crypto buffer"));
+
+          Serial.print(F("Metadata: "));
+          random_data_print(&payload, sizeof(PayloadMetadata));
+
+          size_t sizeoffullbuffer = sizeof(PayloadMetadata) + payload.payload_size;
+
+          void * buf = malloc(sizeoffullbuffer);
+          network.peek(header, buf, sizeoffullbuffer);
+
+          Serial.print(F("Full buffer: "));
+          random_data_print(buf, sizeoffullbuffer);
+          hash_data((uint8_t *)buf+sizeof(PayloadMetadata), payload.payload_size);
+
           free(buf);
 
-          uint32_t tempnonce = sent_noncelist_find_from_ID(nodeID);
+/*
+  From
+  To
+  HMAC
+  Size of full payload
+  Metadata
+  Full buffer
+  Nonce
+  Generated hash
+  Original hash
+
+  Hmac init
+  Hash the payload
+  Hash the nonce
+  Store the hash
+  Print the hash
+*/
+
+          SentNonce * tempnonce = sent_noncelist_find_from_ID(nodeID);
           if (tempnonce != 0) {
-            Serial.print(F("Nonce found: "));
-            Serial.println(tempnonce);
-            Sha256.write(tempnonce);
+            Serial.print(F("Nonce used: "));
+            Serial.println(tempnonce->nonce);
+            Sha256.write(tempnonce->nonce);
           } else {
             Serial.println(F("Nonce not found!"));
             return false; //TODO WARNING: Just keeping the message in the buffer
           }
+
           uint8_t calculated_hash[32];
           hash_store(Sha256.resultHmac(), calculated_hash);
+
           Serial.print(F("Calculated hash: "));
           hash_print(calculated_hash);
           Serial.print(F("Received hash: "));
           hash_print(payload.hash);
+
           if (calculated_hash == payload.hash) {
             Serial.println(F("EQUAL HASH?!"));
           } else {
             Serial.println(F("Inequal hash!"));
             return false;
           }
+
           return true;
         }
       case 'R': { //"R" like "send me a nonce"
@@ -834,7 +938,4 @@ void signed_network_update() {
   }
 
   mesh.update();
-}
-
-void signed_network_begin() {
 }

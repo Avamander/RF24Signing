@@ -50,7 +50,7 @@ void setup(void) {
   Serial.println(F("RF24Mesh 1/2 ready"));
   mesh.begin();
   Serial.println(F("RF24Mesh ready"));
-  signed_network_begin();
+  signed_network_begin(1);
   Serial.println(F("RF24Signing ready"));
 }
 
