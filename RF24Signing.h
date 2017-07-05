@@ -92,7 +92,7 @@ void hash_data(void * payload, size_t payload_size) {
   Serial.println((uint8_t) payload);
   Serial.println(payload_size);
   for (uint8_t i = 0; i < payload_size; i++) { //Read the payload from the
-    Serial.print(F("Writing... "));              //the payload byte by byte to the crypto
+    Serial.print(F("Writing... "));            //the payload byte by byte to the crypto
     uint8_t * pload = (uint8_t*) payload;
     uint8_t * pload_shifted = pload + i;
     Serial.print((uint8_t) *pload_shifted, DEC);
@@ -102,7 +102,7 @@ void hash_data(void * payload, size_t payload_size) {
   Serial.println();
 }
 
-void hash_print(uint8_t * hash) {
+void hash_print(uint8_t * hash) {  //TODO: UNREQUIRED
   for (uint8_t i = 0; i < 32; i++) {
     Serial.print("0123456789abcdef"[hash[i] >> 4]);
     Serial.print("0123456789abcdef"[hash[i] & 0xf]);
