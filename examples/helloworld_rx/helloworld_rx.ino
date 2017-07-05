@@ -1,13 +1,13 @@
 /*
   Copyright (C) 2012 James Coliz, Jr. <maniacbug@ymail.com>
   Copyright (C) 2014 TMRh20
-  Copyright (C) 2016 Avamander <avamander@gmail.com>
+  Copyright (C) 2017 Avamander <avamander@gmail.com>
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License
   version 2 as published by the Free Software Foundation.
 */
 
-/**BFE48206F706666666E736565746C7166203A65
+/**
    Simplest possible example of using RF24Signing. With neat serial commands.
 
    RECEIVER NODE

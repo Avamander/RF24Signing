@@ -74,14 +74,6 @@ extern RF24Mesh mesh;
 
 uint8_t current_node_ID;
 
-void hash_print(uint8_t * hash) {
-  for (int i = 0; i < 32; i++) {
-    Serial.print("0123456789abcdef"[hash[i] >> 4]);
-    Serial.print("0123456789abcdef"[hash[i] & 0xf]);
-  }
-  Serial.println();
-}
-
 uint8_t hmacKey2[] = {
   0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14,
   0x15, 0x16, 0x17, 0x18, 0x19
@@ -91,9 +83,6 @@ void signed_network_begin(uint8_t passed_nodeID) {
   Serial.println(F("Signed network begun"));
   Serial.println((uint8_t)&current_node_ID);
   current_node_ID = passed_nodeID;
-  Sha256.initHmac(hmacKey2, 25);
-  for (uint8_t a = 0; a < 50; a++) Sha256.write(0xcd);
-  hash_print(Sha256.resultHmac());
 }
 
 /*
@@ -113,8 +102,25 @@ void hash_data(void * payload, size_t payload_size) {
   Serial.println();
 }
 
+void hash_print(uint8_t * hash) {
+  for (uint8_t i = 0; i < 32; i++) {
+    Serial.print("0123456789abcdef"[hash[i] >> 4]);
+    Serial.print("0123456789abcdef"[hash[i] & 0xf]);
+  }
+  Serial.println();
+}
+
 void hash_store(void * hash, void * result_hash) {
   memmove(result_hash, hash, sizeof(uint8_t[32]));
+}
+
+bool hash_compare(void * hash1, void * hash2){
+  for(uint8_t byte = 0; byte < 32; byte++){
+    if(*(((uint8_t *)hash1)+byte) != *(((uint8_t *)hash2)+byte)){
+      return false;
+    }
+  }
+  return true;
 }
 
 void requested_noncelist_print() {
@@ -415,7 +421,11 @@ void sent_noncelist_remove(SentNonce * previous, SentNonce * current) {
   Serial.println((uint8_t) previous);
   Serial.print(F("Next: "));
   Serial.println((uint8_t) current->next);
-  previous->next = current->next;
+  if(previous != 0){
+    previous->next = current->next;
+  } else{
+    sent_noncelist_first = 0;
+  }
   free(current);
   Serial.println(F("Removed nonce"));
 }
@@ -809,7 +819,7 @@ bool UnsignedNetworkAvailable(void) {
           hash_print(payload.hash);
 
           free(buf);
-          if (calculated_hash == payload.hash) {
+          if (hash_compare(calculated_hash, payload.hash)) {
             Serial.println(F("EQUAL HASH?!"));
           } else {
             Serial.println(F("Inequal hash!"));
