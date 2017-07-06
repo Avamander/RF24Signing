@@ -102,10 +102,9 @@ void hash_data(void * payload, size_t payload_size) {
   Serial.println();
 }
 
-void hash_print(uint8_t * hash) {  //TODO: UNREQUIRED
+void hash_print(uint8_t * hash) {
   for (uint8_t i = 0; i < 32; i++) {
-    Serial.print("0123456789abcdef"[hash[i] >> 4]);
-    Serial.print("0123456789abcdef"[hash[i] & 0xf]);
+    Serial.print(hash[i]);
   }
   Serial.println();
 }
