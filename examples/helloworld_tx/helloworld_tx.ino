@@ -59,7 +59,7 @@ void setup(void) {
   Serial.println(F("RF24Mesh 1/2 ready"));
   mesh.begin();
   Serial.println(F("RF24Mesh ready"));
-  signed_network_begin(0);
+  RF24Signing_signed_network_begin(0);
   Serial.println(F("RF24Signing ready"));
 }
 
@@ -69,18 +69,18 @@ void loop() {
 
     switch (abyte) {
       case 'a':
-        received_noncelist_print();
+        RF24Signing_received_noncelist_print();
         break;
       case 'b':
-        sent_noncelist_print();
+        RF24Signing_sent_noncelist_print();
         break;
       case 'c':
-        bufferlist_print();
+        RF24Signing_bufferlist_print();
         break;
       case 'd':
         payload.sensor_id = 123;
         payload.sensor_data = 345;
-        bufferlist_add(1, &payload, sizeof(payload_s));
+        RF24Signing_bufferlist_add(1, &payload, sizeof(payload_s));
         Serial.println(F("Returned to switch"));
         break;
       case 'e':
@@ -110,7 +110,7 @@ void loop() {
         delay(1000);
         break;
       case 'i':
-        requested_noncelist_print();
+        RF24Signing_requested_noncelist_print();
       default:
         break;
     }
@@ -119,7 +119,7 @@ void loop() {
   //Serial.println(F("DHCP"));
   mesh.DHCP();
   //Serial.println(F("Update"));
-  signed_network_update();
+  RF24Signing_signed_network_update();
   //Serial.println(F("DHCP"));
   mesh.DHCP();
   //Serial.println(F("DHCP done"));
@@ -129,7 +129,7 @@ void loop() {
     displayTimer = millis();
   }
 
-  while (UnsignedNetworkAvailable()) {
+  while (RF24Signing_unsigned_network_available()) {
     Serial.println(F("-"));
     RF24NetworkHeader header;
     network.peek(header);

@@ -50,7 +50,7 @@ void setup(void) {
   Serial.println(F("RF24Mesh 1/2 ready"));
   mesh.begin();
   Serial.println(F("RF24Mesh ready"));
-  signed_network_begin(1);
+  RF24Signing_signed_network_begin(1);
   Serial.println(F("RF24Signing ready"));
 }
 
@@ -60,20 +60,20 @@ void loop(void) {
 
     switch (abyte) {
       case 'a':
-        received_noncelist_print();
+        RF24Signing_received_noncelist_print();
         break;
       case 'b':
-        sent_noncelist_print();
+        RF24Signing_sent_noncelist_print();
         break;
       case 'c':
-        bufferlist_print();
+        RF24Signing_bufferlist_print();
         break;
       case 'd':
 
         payload_s payload;
         payload.sensor_id = 123;
         payload.sensor_data = 345;
-        bufferlist_add(1, &payload, sizeof(payload_s));
+        RF24Signing_bufferlist_add(1, &payload, sizeof(payload_s));
         Serial.println(F("Returned to switch"));
         break;
       case 'e':
@@ -83,7 +83,7 @@ void loop(void) {
     }
   }
   network.update();                  // Check the network regularly
-  signed_network_update();
+  RF24Signing_signed_network_update();
 
   if (millis() - displayTimer > 1000) {
     Serial.println(millis());
@@ -95,7 +95,7 @@ void loop(void) {
     }
   }
 
-  while (UnsignedNetworkAvailable()) {
+  while (RF24Signing_unsigned_network_available()) {
     Serial.println(F("-"));
     RF24NetworkHeader header;
     payload_p payload;
