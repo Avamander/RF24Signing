@@ -34,4 +34,5 @@
 
 # Linux temporary files
 *.bak
-*Trash1000
+*.Trash1000
+*.*.swp
