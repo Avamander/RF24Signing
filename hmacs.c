@@ -19,6 +19,7 @@
 #include <stdint.h>
 #include <Arduino.h>
 
+//This array contains the hmacs used by the library, currently the index is equal to the node ID 
 static const uint8_t hmacs[2][20] PROGMEM = {
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
   {255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
