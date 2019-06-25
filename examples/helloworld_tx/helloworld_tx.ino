@@ -42,11 +42,11 @@ struct payload_s {
   int sensor_data;
 };
 
-struct payload_crap {
-  uint32_t shit[32] = {1};
+struct payload_garbage {
+  uint32_t garb[32] = {1};
 };
 
-struct payload_crap crap;
+struct payload_garbage garbage;
 struct payload_s payload;
 
 unsigned long displayTimer = 0;
@@ -103,8 +103,8 @@ void loop() {
         mesh.write(&payload_simple, (uint8_t)'T', (size_t)sizeof(payload_s), (uint8_t)1);
         break;
       case 'g':
-        Serial.println(sizeof(payload_crap));
-        mesh.write(&crap, (uint8_t)'T', (size_t)sizeof(payload_s), (uint8_t)1);
+        Serial.println(sizeof(payload_garbage));
+        mesh.write(&garb, (uint8_t)'T', (size_t)sizeof(payload_s), (uint8_t)1);
         break;
       case 'h':
         delay(1000);
